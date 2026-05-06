@@ -72,16 +72,25 @@ export function CotizacionesView() {
     <div className="space-y-4 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h2
-            className="text-2xl font-bold"
-            style={{ fontFamily: 'var(--font-league-spartan)' }}
-          >
-            Cotizaciones
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            {cotizaciones.length} cotizaciones en total
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl overflow-hidden bg-white shadow-sm flex items-center justify-center">
+            <img
+              src="/logo-vivanticos.jpeg"
+              alt="Vivanticos"
+              className="w-full h-full object-contain"
+            />
+          </div>
+          <div>
+            <h2
+              className="text-2xl font-bold"
+              style={{ fontFamily: 'var(--font-league-spartan)' }}
+            >
+              Cotizaciones
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {cotizaciones.length} cotizaciones en total
+            </p>
+          </div>
         </div>
         <Button
           className="bg-viv-sage hover:bg-viv-sage-dark text-white"

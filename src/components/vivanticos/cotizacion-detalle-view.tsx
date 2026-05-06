@@ -150,17 +150,27 @@ export function CotizacionDetalleView() {
         <Button variant="ghost" size="icon" onClick={goBack}>
           <ArrowLeft size={20} />
         </Button>
-        <div className="flex-1 min-w-0">
-          <p className="text-xs text-muted-foreground uppercase tracking-wider">
-            Cotización
-          </p>
-          <h2
-            className="text-xl md:text-2xl font-bold truncate"
-            style={{ fontFamily: 'var(--font-league-spartan)' }}
-          >
-            {cotizacion.cliente_nombre}
-          </h2>
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl overflow-hidden bg-white shadow-sm flex items-center justify-center">
+            <img
+              src="/logo-vivanticos.jpeg"
+              alt="Vivanticos"
+              className="w-full h-full object-contain"
+            />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">
+              Cotización
+            </p>
+            <h2
+              className="text-xl md:text-2xl font-bold truncate"
+              style={{ fontFamily: 'var(--font-league-spartan)' }}
+            >
+              {cotizacion.cliente_nombre}
+            </h2>
+          </div>
         </div>
+        <div className="flex-1" />
       </div>
 
       {/* Status + Actions bar */}
@@ -316,12 +326,24 @@ export function CotizacionDetalleView() {
           {/* Summary */}
           <Card className="border-0 shadow-sm bg-gradient-to-br from-viv-sage/5 to-viv-peach/5">
             <CardContent className="p-4 space-y-2">
-              <h3
-                className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3"
-                style={{ fontFamily: 'var(--font-league-spartan)' }}
-              >
-                Resumen
-              </h3>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-12 h-12 rounded-xl overflow-hidden bg-white shadow-sm flex items-center justify-center">
+                  <img
+                    src="/logo-vivanticos.jpeg"
+                    alt="Vivanticos"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div>
+                  <h3
+                    className="text-sm font-bold uppercase tracking-wider text-muted-foreground"
+                    style={{ fontFamily: 'var(--font-league-spartan)' }}
+                  >
+                    Resumen
+                  </h3>
+                  <p className="text-[10px] text-muted-foreground">Vivanticos · Mobiliario Infantil</p>
+                </div>
+              </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Subtotal</span>
                 <span className="text-sm font-semibold">{formatPrice(cotizacion.subtotal)}</span>

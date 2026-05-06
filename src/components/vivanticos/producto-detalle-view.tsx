@@ -59,12 +59,22 @@ export function ProductoDetalleView() {
         <Button variant="ghost" size="icon" onClick={goBack}>
           <ArrowLeft size={20} />
         </Button>
-        <div className="flex-1">
-          <p className="text-xs text-muted-foreground uppercase tracking-wider">{producto.codigo}</p>
-          <h2 className="text-xl md:text-2xl font-bold" style={{ fontFamily: 'var(--font-league-spartan)' }}>
-            {producto.nombre}
-          </h2>
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl overflow-hidden bg-white shadow-sm flex items-center justify-center">
+            <img
+              src="/logo-vivanticos.jpeg"
+              alt="Vivanticos"
+              className="w-full h-full object-contain"
+            />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">{producto.codigo}</p>
+            <h2 className="text-xl md:text-2xl font-bold" style={{ fontFamily: 'var(--font-league-spartan)' }}>
+              {producto.nombre}
+            </h2>
+          </div>
         </div>
+        <div className="flex-1" />
         {canManage && (
           <div className="flex gap-2">
             <Button

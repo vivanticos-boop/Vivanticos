@@ -294,17 +294,27 @@ export function CotizacionFormView() {
         <Button variant="ghost" size="icon" onClick={goBack}>
           <ArrowLeft size={20} />
         </Button>
-        <div className="flex-1">
-          <p className="text-xs text-muted-foreground uppercase tracking-wider">
-            {isEditing ? 'Editar cotización' : 'Nueva cotización'}
-          </p>
-          <h2
-            className="text-xl md:text-2xl font-bold"
-            style={{ fontFamily: 'var(--font-league-spartan)' }}
-          >
-            {isEditing ? existingCotizacion?.cliente_nombre || 'Editar' : 'Crear Cotización'}
-          </h2>
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl overflow-hidden bg-white shadow-sm flex items-center justify-center">
+            <img
+              src="/logo-vivanticos.jpeg"
+              alt="Vivanticos"
+              className="w-full h-full object-contain"
+            />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">
+              {isEditing ? 'Editar cotización' : 'Nueva cotización'}
+            </p>
+            <h2
+              className="text-xl md:text-2xl font-bold"
+              style={{ fontFamily: 'var(--font-league-spartan)' }}
+            >
+              {isEditing ? existingCotizacion?.cliente_nombre || 'Editar' : 'Crear Cotización'}
+            </h2>
+          </div>
         </div>
+        <div className="flex-1" />
         <Button
           className="bg-viv-sage hover:bg-viv-sage-dark text-white"
           onClick={handleSubmit}
