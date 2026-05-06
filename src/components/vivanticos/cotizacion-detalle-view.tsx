@@ -118,13 +118,14 @@ export function CotizacionDetalleView() {
 
     const message =
       `¡Hola ${cotizacion.cliente_nombre}! 🧸\n\n` +
-      `Te comparto tu cotización de *Vivanticos*:\n\n` +
+      `Te comparto tu cotización de *Vivanticos - Mobiliario Infantil*:\n\n` +
       `${itemLines}\n\n` +
       `Total: *${formatPrice(cotizacion.total)}*` +
       (cotizacion.descuento_total > 0
         ? `\n¡Incluye un descuento de ${formatPrice(cotizacion.descuento_total)}! 🎉`
         : '') +
-      `\n\n¿Te gustaría algún ajuste? Estoy aquí para ayudarte 😊`;
+      `\n\n¿Te gustaría algún ajuste? Estoy aquí para ayudarte 😊` +
+      `\n\n— Vivanticos · Mobiliario Infantil · Amor en cada detalle 💛`;
 
     const link = generateWhatsAppLink(cotizacion.cliente_telefono, message);
     window.open(link, '_blank');

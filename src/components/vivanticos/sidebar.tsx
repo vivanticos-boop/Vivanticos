@@ -41,8 +41,12 @@ export function Sidebar({ onClose }: SidebarProps) {
       {/* Logo */}
       <div className="flex items-center justify-between px-4 h-16 border-b border-border">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-viv-sage/20 flex items-center justify-center">
-            <span className="text-lg">🧸</span>
+          <div className="w-9 h-9 rounded-xl overflow-hidden bg-white flex items-center justify-center">
+            <img
+              src="/logo-vivanticos.jpeg"
+              alt="Vivanticos"
+              className="w-full h-full object-contain"
+            />
           </div>
           <div>
             <h1 className="text-lg font-bold" style={{ fontFamily: 'var(--font-league-spartan)' }}>

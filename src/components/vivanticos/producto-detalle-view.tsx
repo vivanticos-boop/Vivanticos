@@ -44,10 +44,11 @@ export function ProductoDetalleView() {
   };
 
   const handleWhatsApp = () => {
-    const msg = `¡Hola! Te comparto información sobre *${producto.nombre}*:\n\n` +
+    const msg = `¡Hola! Te comparto información sobre *${producto.nombre}* de Vivanticos:\n\n` +
       `Código: ${producto.codigo}\n` +
       `Precio: ${formatPrice(producto.precio_base)}\n\n` +
-      producto.descripcion;
+      producto.descripcion +
+      `\n\n— Vivanticos · Mobiliario Infantil 💛`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
   };
 

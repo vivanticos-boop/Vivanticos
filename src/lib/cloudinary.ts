@@ -2,7 +2,7 @@
 // CONFIGURACIÓN CLOUDINARY - VIVANTICOS
 // ==========================================
 
-const CLOUDINARY_CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || '';
+const CLOUDINARY_CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'dgdzs3u7k';
 const CLOUDINARY_UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'vivanticos';
 
 export const isCloudinaryConfigured = () => Boolean(CLOUDINARY_CLOUD_NAME);

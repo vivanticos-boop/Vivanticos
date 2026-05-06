@@ -41,8 +41,12 @@ export function LoginView() {
       <div className="w-full max-w-md animate-fade-in">
         {/* Logo & Branding */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-viv-sage/20 mb-4">
-            <span className="text-4xl">🧸</span>
+          <div className="inline-flex items-center justify-center w-28 h-28 rounded-2xl bg-white shadow-md shadow-viv-beige/20 mb-4 overflow-hidden border border-viv-beige/30">
+            <img
+              src="/logo-vivanticos.jpeg"
+              alt="Vivanticos"
+              className="w-full h-full object-contain p-1"
+            />
           </div>
           <h1 className="text-3xl font-bold text-foreground" style={{ fontFamily: 'var(--font-league-spartan)' }}>
             Vivanticos
