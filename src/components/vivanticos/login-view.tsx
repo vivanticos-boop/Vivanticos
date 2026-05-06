@@ -39,19 +39,15 @@ export function LoginView() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#FAFAF8] via-[#F5F0EB] to-[#FAFAF8] p-4">
       <div className="w-full max-w-md animate-fade-in">
-        {/* Logo & Branding */}
+        {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-28 h-28 rounded-2xl bg-white shadow-md shadow-viv-beige/20 mb-4 overflow-hidden border border-viv-beige/30">
+          <div className="inline-flex items-center justify-center w-40 h-40 rounded-2xl bg-white shadow-md shadow-viv-beige/20 overflow-hidden border border-viv-beige/30">
             <img
               src="/logo-vivanticos.jpeg"
-              alt="Vivanticos"
-              className="w-full h-full object-contain p-1"
+              alt="Vivanticos - Mobiliario Infantil"
+              className="w-full h-full object-contain p-2"
             />
           </div>
-          <h1 className="text-3xl font-bold text-foreground" style={{ fontFamily: 'var(--font-league-spartan)' }}>
-            Vivanticos
-          </h1>
-          <p className="text-muted-foreground mt-1">Mobiliario Infantil</p>
         </div>
 
         <Card className="border-0 shadow-lg shadow-viv-beige/20">
