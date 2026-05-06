@@ -16,8 +16,8 @@ export interface Categoria {
 
 export interface Subcategoria {
   id: string;
-  categoria_id: string;
   nombre: string;
+  categoria_id: string;
   orden: number;
   activa: boolean;
 }
@@ -27,15 +27,17 @@ export interface Producto {
   id: string;
   codigo: string;
   nombre: string;
+  descripcion: string; // Solo visible dentro de la app (admin/vendedor)
+  medidas: string; // Solo visible dentro de la app
+  material: string; // Solo visible dentro de la app
+  garantia: string; // Solo visible dentro de la app
+  precio_base: number;
+  precio_descuento: number; // 0 = sin descuento
   categoria_id: string;
   subcategoria_id?: string;
-  descripcion: string;
-  descripcion_tecnica: string;
-  precio_base: number;
-  imagenes: string[];
+  entrega_inmediata: boolean;
+  imagenes: string[]; // URLs de Cloudinary, máximo 4
   activo: boolean;
-  descuento_tipo?: 'colchon' | 'cuna' | 'ninguno';
-  descuento_valor?: number;
   creado_en: string;
   actualizado_en: string;
 }

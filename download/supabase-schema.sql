@@ -4,6 +4,20 @@
 -- ==========================================
 
 -- ==========================================
+-- DROP TABLE (en orden inverso por dependencias)
+-- ==========================================
+DROP TABLE IF EXISTS notificaciones;
+DROP TABLE IF EXISTS entregas;
+DROP TABLE IF EXISTS cotizacion_items;
+DROP TABLE IF EXISTS cotizaciones;
+DROP TABLE IF EXISTS producto_opcion_valores;
+DROP TABLE IF EXISTS producto_opciones;
+DROP TABLE IF EXISTS productos;
+DROP TABLE IF EXISTS usuarios;
+DROP TABLE IF EXISTS subcategorias;
+DROP TABLE IF EXISTS categorias;
+
+-- ==========================================
 -- 1. TABLA: categorias
 -- ==========================================
 CREATE TABLE IF NOT EXISTS categorias (
@@ -43,8 +57,11 @@ CREATE TABLE IF NOT EXISTS productos (
   precio_base INTEGER NOT NULL DEFAULT 0,
   imagenes TEXT[] DEFAULT '{}',
   activo BOOLEAN DEFAULT true,
-  descuento_tipo TEXT DEFAULT 'ninguno' CHECK (descuento_tipo IN ('ninguno', 'colchon', 'cuna')),
-  descuento_valor INTEGER DEFAULT 0,
+  medidas TEXT DEFAULT '',
+  material TEXT DEFAULT '',
+  garantia TEXT DEFAULT '',
+  precio_descuento INTEGER DEFAULT 0,
+  entrega_inmediata BOOLEAN DEFAULT false,
   creado_en TIMESTAMPTZ DEFAULT now(),
   actualizado_en TIMESTAMPTZ DEFAULT now()
 );
@@ -308,47 +325,47 @@ INSERT INTO subcategorias (id, categoria_id, nombre, orden) VALUES
 ON CONFLICT DO NOTHING;
 
 -- Productos
-INSERT INTO productos (id, codigo, nombre, categoria_id, subcategoria_id, descripcion, descripcion_tecnica, precio_base, descuento_tipo, descuento_valor) VALUES
+INSERT INTO productos (id, codigo, nombre, categoria_id, subcategoria_id, descripcion, descripcion_tecnica, precio_base, medidas, material, garantia, precio_descuento, entrega_inmediata) VALUES
   ('33333333-3333-3333-3333-333333333301', 'CUN-LUN-001', 'Cuna Luna',
    '11111111-1111-1111-1111-111111111101', '22222222-2222-2222-2222-222222222201',
    'Cuna funcional con diseño de luna creciente, ideal para decoraciones celestiales.',
    'Estructura en MDF 18mm con cantos de PVC. Acabado lacado mate. Incluye barandas removibles y ruedas con freno. Medida estándar 120x60cm.',
-   450000, 'cuna', 100000),
+   450000, '120x60cm, 130x70cm, 140x70cm', 'MDF 18mm con cantos de PVC, acabado lacado mate', '6 meses por defectos de fabricación', 350000, true),
   ('33333333-3333-3333-3333-333333333302', 'CUN-EST-002', 'Cuna Estrella',
    '11111111-1111-1111-1111-111111111101', '22222222-2222-2222-2222-222222222201',
    'Cuna funcional con motivos de estrellas, perfecta para un cuarto de ensueño.',
    'MDF 15mm con detalles tallados. Incluye cajón debajo. Baranda frontal rebatible. Acabado lacado.',
-   520000, 'cuna', 200000),
+   520000, '120x60cm, 130x70cm, 140x70cm', 'MDF 15mm con detalles tallados, acabado lacado', '6 meses por defectos de fabricación', 320000, true),
   ('33333333-3333-3333-3333-333333333303', 'CUN-NUB-003', 'Cuna Nube',
    '11111111-1111-1111-1111-111111111101', '22222222-2222-2222-2222-222222222201',
    'Cuna funcional con forma de nube suave, diseño minimalista y tierno.',
    'MDF 18mm. Diseño recortado de nube en cabecera y piecera. Ruedas de silicone. Terminación suave al tacto.',
-   480000, 'cuna', 100000),
+   480000, '120x60cm, 130x70cm', 'MDF 18mm, terminación suave al tacto', '6 meses por defectos de fabricación', 380000, false),
   ('33333333-3333-3333-3333-333333333304', 'CAM-INF-001', 'Cama Infantil Safari',
    '11111111-1111-1111-1111-111111111102', '22222222-2222-2222-2222-222222222203',
    'Cama infantil con divertidos motivos de safari, perfecta para los más aventureros.',
    'Estructura en MDF 18mm con serigrafía de animales. Baranda de seguridad lateral desmontable. Incluye repisa en piecera.',
-   380000, 'ninguno', 0),
+   380000, '80x160cm, 80x180cm, 90x190cm', 'MDF 18mm con serigrafía de animales', '6 meses por defectos de fabricación', 0, true),
   ('33333333-3333-3333-3333-333333333305', 'CAM-JUV-001', 'Cama Juvenil Nordic',
    '11111111-1111-1111-1111-111111111102', '22222222-2222-2222-2222-222222222204',
    'Cama juvenil estilo nórdico, limpia y moderna para adolescentes.',
    'MDF 18mm con melamina de alta calidad. Líneas rectas y minimalistas. Disponible en varios colores.',
-   420000, 'ninguno', 0),
+   420000, '80x180cm, 90x190cm', 'MDF 18mm con melamina de alta calidad', '6 meses por defectos de fabricación', 350000, false),
   ('33333333-3333-3333-3333-333333333306', 'COM-CAM-001', 'Cómoda Cambiador Daisy',
    '11111111-1111-1111-1111-111111111103', '22222222-2222-2222-2222-222222222205',
    'Cómoda con cambiador integrado, diseño de margaritas para un toque dulce.',
    'MDF 18mm con 4 cajones con rieles silenciosos. Superficie superior como cambiador. Detalles serigrafiados.',
-   380000, 'ninguno', 0),
+   380000, '80x50x90cm', 'MDF 18mm con 4 cajones, rieles silenciosos', '6 meses por defectos de fabricación', 0, true),
   ('33333333-3333-3333-3333-333333333307', 'ROP-2P-001', 'Ropero 2 Puertas Rainbow',
    '11111111-1111-1111-1111-111111111104', '22222222-2222-2222-2222-222222222207',
    'Ropero de 2 puertas con arcoíris en las puertas, funcional y decorativo.',
    'MDF 18mm. Puertas con bisagras de cierre suave. Interior con repisa y colgador. Acabado lacado mate.',
-   520000, 'ninguno', 0),
+   520000, '1.20m ancho, 1.50m ancho, 1.80m ancho', 'MDF 18mm, bisagras de cierre suave', '6 meses por defectos de fabricación', 0, false),
   ('33333333-3333-3333-3333-333333333308', 'ESC-001', 'Escritorio Explorer',
    '11111111-1111-1111-1111-111111111105', '22222222-2222-2222-2222-222222222209',
    'Escritorio con repisa integrada, perfecto para la hora de tarea.',
    'MDF 15mm con estructura robusta. Repisa superior para libros. Cajón para útiles. Patas con niveladores.',
-   280000, 'ninguno', 0)
+   280000, '100x50x75cm', 'MDF 15mm con estructura robusta, patas con niveladores', '6 meses por defectos de fabricación', 220000, true)
 ON CONFLICT DO NOTHING;
 
 -- Opciones de productos

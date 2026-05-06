@@ -1,36 +1,17 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useAppStore } from '@/stores/app-store';
 import { useCatalogoStore } from '@/stores/data-store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import {
-  ArrowLeft,
-  Plus,
-  Trash2,
-  ImagePlus,
-  Ruler,
-  Bed,
-  Layers,
-  Tag,
-  GripVertical,
-  X,
-  Save,
-  Package,
-} from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, ImagePlus, Ruler, Bed, Layers, Tag, GripVertical, X, Save, Package, Truck } from 'lucide-react';
 import { formatPrice, generateId } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { Producto, TipoOpcion } from '@/types';
@@ -67,7 +48,11 @@ const OPCION_TIPO_ICONS: Record<TipoOpcion, React.ReactNode> = {
 };
 
 // Helper to compute initial form state from an existing product
-function getInitialFormState(existingProducto: Producto | null, opciones: { id: string; producto_id: string; tipo: TipoOpcion; nombre: string; requerida: boolean; orden: number }[], opcionValores: { id: string; opcion_id: string; nombre: string; precio_incremento: number; activo: boolean }[]) {
+function getInitialFormState(
+  existingProducto: Producto | null,
+  opciones: { id: string; producto_id: string; tipo: TipoOpcion; nombre: string; requerida: boolean; orden: number }[],
+  opcionValores: { id: string; opcion_id: string; nombre: string; precio_incremento: number; activo: boolean }[]
+) {
   if (!existingProducto) {
     return {
       codigo: '',
@@ -75,10 +60,12 @@ function getInitialFormState(existingProducto: Producto | null, opciones: { id: 
       categoriaId: '',
       subcategoriaId: '',
       descripcion: '',
-      descripcionTecnica: '',
+      medidas: '',
+      material: '',
+      garantia: '',
       precioBase: '',
-      descuentoTipo: 'ninguno' as const,
-      descuentoValor: '',
+      precioDescuento: '',
+      entregaInmediata: false,
       imagenes: [] as string[],
       activo: true,
       formOpciones: [] as FormOpcion[],
@@ -108,11 +95,13 @@ function getInitialFormState(existingProducto: Producto | null, opciones: { id: 
     nombre: existingProducto.nombre,
     categoriaId: existingProducto.categoria_id,
     subcategoriaId: existingProducto.subcategoria_id || '',
-    descripcion: existingProducto.descripcion,
-    descripcionTecnica: existingProducto.descripcion_tecnica,
+    descripcion: existingProducto.descripcion || '',
+    medidas: existingProducto.medidas || '',
+    material: existingProducto.material || '',
+    garantia: existingProducto.garantia || '',
     precioBase: String(existingProducto.precio_base),
-    descuentoTipo: existingProducto.descuento_tipo || 'ninguno',
-    descuentoValor: String(existingProducto.descuento_valor || ''),
+    precioDescuento: existingProducto.precio_descuento > 0 ? String(existingProducto.precio_descuento) : '',
+    entregaInmediata: existingProducto.entrega_inmediata ?? false,
     imagenes: existingProducto.imagenes,
     activo: existingProducto.activo,
     formOpciones: loadedOpciones,
@@ -150,19 +139,31 @@ export function ProductoFormView() {
   const [categoriaId, setCategoriaIdRaw] = useState(() => initialState.categoriaId);
   const [subcategoriaId, setSubcategoriaId] = useState(() => initialState.subcategoriaId);
   const [descripcion, setDescripcion] = useState(() => initialState.descripcion);
-  const [descripcionTecnica, setDescripcionTecnica] = useState(() => initialState.descripcionTecnica);
+  const [medidas, setMedidas] = useState(() => initialState.medidas);
+  const [material, setMaterial] = useState(() => initialState.material);
+  const [garantia, setGarantia] = useState(() => initialState.garantia);
   const [precioBase, setPrecioBase] = useState(() => initialState.precioBase);
-  const [descuentoTipo, setDescuentoTipo] = useState<'ninguno' | 'colchon' | 'cuna'>(() => initialState.descuentoTipo as 'ninguno' | 'colchon' | 'cuna');
-  const [descuentoValor, setDescuentoValor] = useState(() => initialState.descuentoValor);
+  const [precioDescuento, setPrecioDescuento] = useState(() => initialState.precioDescuento);
+  const [entregaInmediata, setEntregaInmediata] = useState(() => initialState.entregaInmediata);
   const [imagenes, setImagenes] = useState<string[]>(() => initialState.imagenes);
   const [activo, setActivo] = useState(() => initialState.activo);
   const [formOpciones, setFormOpciones] = useState<FormOpcion[]>(() => initialState.formOpciones);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Load Cloudinary widget script
+  useEffect(() => {
+    if (!document.getElementById('cloudinary-widget-script')) {
+      const script = document.createElement('script');
+      script.id = 'cloudinary-widget-script';
+      script.src = 'https://upload-widget.cloudinary.com/global/all.js';
+      script.async = true;
+      document.body.appendChild(script);
+    }
+  }, []);
+
   // Wrap setCategoriaId to also reset subcategoria when category changes
   const setCategoriaId = useCallback((newCatId: string) => {
     setCategoriaIdRaw(newCatId);
-    // Check if current subcategoria belongs to the new category
     const subBelongsToCategory = subcategorias.some(
       s => s.id === subcategoriaId && s.categoria_id === newCatId
     );
@@ -176,6 +177,13 @@ export function ProductoFormView() {
     if (!categoriaId) return [];
     return subcategorias.filter(s => s.categoria_id === categoriaId && s.activa);
   }, [categoriaId, subcategorias]);
+
+  // Computed price values for preview
+  const precioBaseNum = Number(precioBase) || 0;
+  const precioDescuentoNum = Number(precioDescuento) || 0;
+  const hasDescuento = precioDescuentoNum > 0 && precioDescuentoNum < precioBaseNum;
+  const ahorro = hasDescuento ? precioBaseNum - precioDescuentoNum : 0;
+  const porcentajeDescuento = hasDescuento ? Math.round((ahorro / precioBaseNum) * 100) : 0;
 
   // Permission check
   if (!canManage) {
@@ -203,6 +211,49 @@ export function ProductoFormView() {
       </div>
     );
   }
+
+  // --- Cloudinary image upload ---
+  const openCloudinaryWidget = (index: number) => {
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+    if (!cloudName) {
+      toast.error('Cloudinary no está configurado');
+      return;
+    }
+    // @ts-ignore
+    const widget = window.cloudinary.createUploadWidget(
+      {
+        cloudName,
+        uploadPreset,
+        folder: 'vivanticos/productos',
+        maxFiles: 1,
+        maxImageFileSize: 5000000,
+        cropping: true,
+        croppingAspectRatio: 1,
+      },
+      (error: any, result: any) => {
+        if (!error && result.event === 'success') {
+          const url = result.info.secure_url;
+          const newImagenes = [...imagenes];
+          if (index < newImagenes.length) {
+            newImagenes[index] = url;
+          } else {
+            newImagenes.push(url);
+          }
+          setImagenes(newImagenes);
+          toast.success('Imagen subida');
+        }
+        if (error) {
+          toast.error('Error al subir imagen');
+        }
+      }
+    );
+    widget.open();
+  };
+
+  const removeImage = (index: number) => {
+    setImagenes(imagenes.filter((_, i) => i !== index));
+  };
 
   // --- Option management ---
   const addOpcion = () => {
@@ -280,19 +331,8 @@ export function ProductoFormView() {
     );
   };
 
-  // --- Image management ---
-  const handleImageUpload = (_index: number) => {
-    // Placeholder: In production this would open Cloudinary upload widget
-    toast.info('Subida de imagen (Cloudinary) - próximamente');
-  };
-
-  const removeImage = (index: number) => {
-    setImagenes(imagenes.filter((_, i) => i !== index));
-  };
-
   // --- Submit ---
   const handleSubmit = () => {
-    // Validation
     if (!codigo.trim()) {
       toast.error('El código es obligatorio');
       return;
@@ -313,6 +353,7 @@ export function ProductoFormView() {
     setIsSubmitting(true);
 
     const now = new Date().toISOString();
+    const precioDescuentoValue = precioDescuentoNum > 0 ? precioDescuentoNum : 0;
 
     const productoData: Producto = {
       id: isEditing ? existingProducto!.id : generateId(),
@@ -321,15 +362,14 @@ export function ProductoFormView() {
       categoria_id: categoriaId,
       subcategoria_id: subcategoriaId || undefined,
       descripcion: descripcion.trim(),
-      descripcion_tecnica: descripcionTecnica.trim(),
+      medidas: medidas.trim(),
+      material: material.trim(),
+      garantia: garantia.trim(),
       precio_base: Number(precioBase),
+      precio_descuento: precioDescuentoValue,
+      entrega_inmediata: entregaInmediata,
       imagenes,
       activo,
-      descuento_tipo: descuentoTipo === 'ninguno' ? undefined : descuentoTipo,
-      descuento_valor:
-        descuentoTipo !== 'ninguno' && descuentoValor
-          ? Number(descuentoValor)
-          : undefined,
       creado_en: isEditing ? existingProducto!.creado_en : now,
       actualizado_en: now,
     };
@@ -347,9 +387,9 @@ export function ProductoFormView() {
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto animate-fade-in">
-      {/* Header */}
+      {/* ========== Header ========== */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={goBack}>
+        <Button variant="ghost" size="icon" onClick={goBack} aria-label="Volver">
           <ArrowLeft size={20} />
         </Button>
         <div className="flex-1">
@@ -378,7 +418,7 @@ export function ProductoFormView() {
         </Button>
       </div>
 
-      {/* Basic Info */}
+      {/* ========== Información Básica ========== */}
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-3">
           <CardTitle
@@ -470,42 +510,83 @@ export function ProductoFormView() {
             </div>
           </div>
 
-          {/* Descripción */}
+          {/* Descripción — Solo visible dentro de la app */}
           <div className="space-y-1.5">
             <Label htmlFor="descripcion" className="text-xs font-semibold uppercase tracking-wider">
-              Descripción
+              Descripción{' '}
+              <span className="text-viv-peach-dark font-normal normal-case tracking-normal text-[11px]">
+                (Solo visible dentro de la app)
+              </span>
             </Label>
             <Textarea
               id="descripcion"
-              placeholder="Descripción del producto para el cliente..."
+              placeholder="Descripción interna del producto..."
               value={descripcion}
               onChange={e => setDescripcion(e.target.value)}
-              rows={3}
-            />
-          </div>
-
-          {/* Descripción técnica */}
-          <div className="space-y-1.5">
-            <Label
-              htmlFor="descripcionTecnica"
-              className="text-xs font-semibold uppercase tracking-wider"
-            >
-              Descripción Técnica{' '}
-              <span className="text-muted-foreground font-normal">(Solo interno)</span>
-            </Label>
-            <Textarea
-              id="descripcionTecnica"
-              placeholder="Especificaciones técnicas, materiales, procesos..."
-              value={descripcionTecnica}
-              onChange={e => setDescripcionTecnica(e.target.value)}
               rows={3}
               className="bg-viv-beige/5"
             />
           </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Medidas — Solo visible dentro de la app */}
+            <div className="space-y-1.5">
+              <Label htmlFor="medidas" className="text-xs font-semibold uppercase tracking-wider">
+                Medidas{' '}
+                <span className="text-viv-peach-dark font-normal normal-case tracking-normal text-[11px]">
+                  (Solo app)
+                </span>
+              </Label>
+              <div className="relative">
+                <Ruler size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="medidas"
+                  placeholder="Ej: 120x60cm"
+                  value={medidas}
+                  onChange={e => setMedidas(e.target.value)}
+                  className="h-10 pl-9"
+                />
+              </div>
+            </div>
+
+            {/* Material — Solo visible dentro de la app */}
+            <div className="space-y-1.5">
+              <Label htmlFor="material" className="text-xs font-semibold uppercase tracking-wider">
+                Material{' '}
+                <span className="text-viv-peach-dark font-normal normal-case tracking-normal text-[11px]">
+                  (Solo app)
+                </span>
+              </Label>
+              <Input
+                id="material"
+                placeholder="Ej: MDF 18mm"
+                value={material}
+                onChange={e => setMaterial(e.target.value)}
+                className="h-10"
+              />
+            </div>
+
+            {/* Garantía — Solo visible dentro de la app */}
+            <div className="space-y-1.5">
+              <Label htmlFor="garantia" className="text-xs font-semibold uppercase tracking-wider">
+                Garantía{' '}
+                <span className="text-viv-peach-dark font-normal normal-case tracking-normal text-[11px]">
+                  (Solo app)
+                </span>
+              </Label>
+              <Input
+                id="garantia"
+                placeholder="Ej: 6 meses"
+                value={garantia}
+                onChange={e => setGarantia(e.target.value)}
+                className="h-10"
+              />
+            </div>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Pricing & Discount */}
+      {/* ========== Precio y Descuento ========== */}
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-3">
           <CardTitle
@@ -536,75 +617,102 @@ export function ProductoFormView() {
                   className="h-10 pl-7"
                 />
               </div>
-              {precioBase && Number(precioBase) > 0 && (
+              {precioBaseNum > 0 && (
                 <p className="text-xs text-viv-sage-dark font-semibold">
-                  {formatPrice(Number(precioBase))}
+                  {formatPrice(precioBaseNum)}
                 </p>
               )}
             </div>
 
-            {/* Tipo de descuento */}
+            {/* Precio con descuento */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold uppercase tracking-wider">
-                Tipo de Descuento
-              </Label>
-              <Select
-                value={descuentoTipo}
-                onValueChange={(v: 'ninguno' | 'colchon' | 'cuna') => {
-                  setDescuentoTipo(v);
-                  if (v === 'ninguno') setDescuentoValor('');
-                }}
-              >
-                <SelectTrigger className="h-10">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ninguno">Sin descuento</SelectItem>
-                  <SelectItem value="colchon">Descuento colchón</SelectItem>
-                  <SelectItem value="cuna">Descuento cuna</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Valor de descuento */}
-          {descuentoTipo !== 'ninguno' && (
-            <div className="space-y-1.5 animate-fade-in">
-              <Label
-                htmlFor="descuentoValor"
-                className="text-xs font-semibold uppercase tracking-wider"
-              >
-                Valor de Descuento (COP)
+              <Label htmlFor="precioDescuento" className="text-xs font-semibold uppercase tracking-wider">
+                Precio con Descuento (COP)
               </Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
                   $
                 </span>
                 <Input
-                  id="descuentoValor"
+                  id="precioDescuento"
                   type="number"
                   min="0"
-                  placeholder="0"
-                  value={descuentoValor}
-                  onChange={e => setDescuentoValor(e.target.value)}
+                  placeholder="0 = sin descuento"
+                  value={precioDescuento}
+                  onChange={e => setPrecioDescuento(e.target.value)}
                   className="h-10 pl-7"
                 />
               </div>
-              {descuentoValor && Number(descuentoValor) > 0 && (
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-viv-rose/15 text-viv-rose-dark border-0">
-                    <Tag size={12} className="mr-1" />
-                    Descuento {descuentoTipo === 'colchon' ? 'colchón' : 'cuna'}:{' '}
-                    {formatPrice(Number(descuentoValor))}
-                  </Badge>
-                </div>
+              {precioDescuentoNum > 0 && (
+                <p className="text-xs text-viv-rose-dark font-semibold">
+                  {formatPrice(precioDescuentoNum)}
+                </p>
               )}
             </div>
+          </div>
+
+          {/* Price preview */}
+          {precioBaseNum > 0 && (
+            <div className="rounded-xl bg-viv-beige/10 border border-viv-beige/30 p-4 space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Vista previa de precio
+              </p>
+              <div className="flex flex-wrap items-baseline gap-3">
+                {hasDescuento ? (
+                  <>
+                    <span className="text-2xl font-bold text-viv-sage-dark" style={{ fontFamily: 'var(--font-league-spartan)' }}>
+                      {formatPrice(precioDescuentoNum)}
+                    </span>
+                    <span className="text-sm text-muted-foreground line-through">
+                      {formatPrice(precioBaseNum)}
+                    </span>
+                    <Badge className="bg-viv-rose/15 text-viv-rose-dark border-0 text-xs font-bold">
+                      <Tag size={12} className="mr-1" />
+                      -{porcentajeDescuento}% · Ahorras {formatPrice(ahorro)}
+                    </Badge>
+                  </>
+                ) : (
+                  <span className="text-2xl font-bold text-viv-sage-dark" style={{ fontFamily: 'var(--font-league-spartan)' }}>
+                    {formatPrice(precioBaseNum)}
+                  </span>
+                )}
+              </div>
+            </div>
           )}
+
+          {/* Entrega Inmediata toggle */}
+          <div className="flex items-center justify-between rounded-xl bg-muted/30 p-4">
+            <div className="flex items-center gap-3">
+              <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${entregaInmediata ? 'bg-viv-sage/15' : 'bg-muted'}`}>
+                <Truck size={18} className={entregaInmediata ? 'text-viv-sage-dark' : 'text-muted-foreground'} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold">Entrega Inmediata</p>
+                <p className="text-xs text-muted-foreground">
+                  {entregaInmediata ? 'Disponible para entrega inmediata' : 'Tiempo de producción estándar'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setEntregaInmediata(!entregaInmediata)}
+              className={`relative w-12 h-7 rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-viv-sage ${
+                entregaInmediata ? 'bg-viv-sage' : 'bg-muted-foreground/30'
+              }`}
+              role="switch"
+              aria-checked={entregaInmediata}
+              aria-label="Entrega inmediata"
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                  entregaInmediata ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Images */}
+      {/* ========== Imágenes ========== */}
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-3">
           <CardTitle
@@ -637,11 +745,11 @@ export function ProductoFormView() {
               </div>
             ))}
 
-            {/* Placeholder upload slots */}
+            {/* Upload slots for empty positions */}
             {Array.from({ length: Math.max(0, 4 - imagenes.length) }).map((_, i) => (
               <button
                 key={`upload-${i}`}
-                onClick={() => handleImageUpload(imagenes.length + i)}
+                onClick={() => openCloudinaryWidget(imagenes.length + i)}
                 className="aspect-square rounded-xl border-2 border-dashed border-viv-sage/30 hover:border-viv-sage/60 bg-viv-sage/5 hover:bg-viv-sage/10 transition-colors flex flex-col items-center justify-center gap-1.5 cursor-pointer group"
                 aria-label="Subir imagen"
               >
@@ -661,7 +769,7 @@ export function ProductoFormView() {
         </CardContent>
       </Card>
 
-      {/* Options / Configurations */}
+      {/* ========== Configuraciones / Opciones ========== */}
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
@@ -879,7 +987,7 @@ export function ProductoFormView() {
         </CardContent>
       </Card>
 
-      {/* Status & Actions */}
+      {/* ========== Status & Actions ========== */}
       <Card className="border-0 shadow-sm">
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
