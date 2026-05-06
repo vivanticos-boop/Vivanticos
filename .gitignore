@@ -24,6 +24,7 @@ yarn-error.log*
 
 # local env files
 .env*.local
+.env
 
 # vercel
 .vercel
@@ -34,6 +35,7 @@ next-env.d.ts
 
 # prisma
 /prisma/db
+/db/
 
 # dev logs
 dev.log
@@ -43,3 +45,15 @@ dev.log
 
 # examples
 /examples/
+
+# Skills (internal, no parte del proyecto)
+/skills/
+
+# Agent context (internal)
+/agent-ctx/
+
+# Upload directory (temporal)
+/upload/
+
+# Mini services (internal)
+/mini-services/
