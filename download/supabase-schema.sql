@@ -279,38 +279,161 @@ CREATE POLICY "Users can create notificaciones" ON notificaciones FOR INSERT TO 
   WITH CHECK (true);
 
 -- ==========================================
--- DATOS INICIALES
+-- DATOS INICIALES (usando UUIDs válidos)
 -- ==========================================
 
--- Categorías
+-- Categorías (IDs UUID válidos)
 INSERT INTO categorias (id, nombre, icono, orden) VALUES
-  ('cat-1', 'Cunas', '🛏️', 1),
-  ('cat-2', 'Camas', '🛏️', 2),
-  ('cat-3', 'Cómodas', '🗄️', 3),
-  ('cat-4', 'Roperos', '🚪', 4),
-  ('cat-5', 'Escritorios', '📐', 5),
-  ('cat-6', 'Accesorios', '✨', 6)
+  ('11111111-1111-1111-1111-111111111101', 'Cunas', '🛏️', 1),
+  ('11111111-1111-1111-1111-111111111102', 'Camas', '🛏️', 2),
+  ('11111111-1111-1111-1111-111111111103', 'Cómodas', '🗄️', 3),
+  ('11111111-1111-1111-1111-111111111104', 'Roperos', '🚪', 4),
+  ('11111111-1111-1111-1111-111111111105', 'Escritorios', '📐', 5),
+  ('11111111-1111-1111-1111-111111111106', 'Accesorios', '✨', 6)
 ON CONFLICT DO NOTHING;
 
 -- Subcategorías
 INSERT INTO subcategorias (id, categoria_id, nombre, orden) VALUES
-  ('sub-1', 'cat-1', 'Cunas Funcionales', 1),
-  ('sub-2', 'cat-1', 'Cunas Clásicas', 2),
-  ('sub-3', 'cat-2', 'Camas Infantiles', 1),
-  ('sub-4', 'cat-2', 'Camas Juveniles', 2),
-  ('sub-5', 'cat-3', 'Cómodas con Cambiador', 1),
-  ('sub-6', 'cat-3', 'Cómodas Clásicas', 2),
-  ('sub-7', 'cat-4', 'Roperos 2 Puertas', 1),
-  ('sub-8', 'cat-4', 'Roperos 3 Puertas', 2),
-  ('sub-9', 'cat-5', 'Escritorios con Repisa', 1),
-  ('sub-10', 'cat-6', 'Repisas', 1),
-  ('sub-11', 'cat-6', 'Canastos', 2)
+  ('22222222-2222-2222-2222-222222222201', '11111111-1111-1111-1111-111111111101', 'Cunas Funcionales', 1),
+  ('22222222-2222-2222-2222-222222222202', '11111111-1111-1111-1111-111111111101', 'Cunas Clásicas', 2),
+  ('22222222-2222-2222-2222-222222222203', '11111111-1111-1111-1111-111111111102', 'Camas Infantiles', 1),
+  ('22222222-2222-2222-2222-222222222204', '11111111-1111-1111-1111-111111111102', 'Camas Juveniles', 2),
+  ('22222222-2222-2222-2222-222222222205', '11111111-1111-1111-1111-111111111103', 'Cómodas con Cambiador', 1),
+  ('22222222-2222-2222-2222-222222222206', '11111111-1111-1111-1111-111111111103', 'Cómodas Clásicas', 2),
+  ('22222222-2222-2222-2222-222222222207', '11111111-1111-1111-1111-111111111104', 'Roperos 2 Puertas', 1),
+  ('22222222-2222-2222-2222-222222222208', '11111111-1111-1111-1111-111111111104', 'Roperos 3 Puertas', 2),
+  ('22222222-2222-2222-2222-222222222209', '11111111-1111-1111-1111-111111111105', 'Escritorios con Repisa', 1),
+  ('22222222-2222-2222-2222-222222222210', '11111111-1111-1111-1111-111111111106', 'Repisas', 1),
+  ('22222222-2222-2222-2222-222222222211', '11111111-1111-1111-1111-111111111106', 'Canastos', 2)
+ON CONFLICT DO NOTHING;
+
+-- Productos
+INSERT INTO productos (id, codigo, nombre, categoria_id, subcategoria_id, descripcion, descripcion_tecnica, precio_base, descuento_tipo, descuento_valor) VALUES
+  ('33333333-3333-3333-3333-333333333301', 'CUN-LUN-001', 'Cuna Luna',
+   '11111111-1111-1111-1111-111111111101', '22222222-2222-2222-2222-222222222201',
+   'Cuna funcional con diseño de luna creciente, ideal para decoraciones celestiales.',
+   'Estructura en MDF 18mm con cantos de PVC. Acabado lacado mate. Incluye barandas removibles y ruedas con freno. Medida estándar 120x60cm.',
+   450000, 'cuna', 100000),
+  ('33333333-3333-3333-3333-333333333302', 'CUN-EST-002', 'Cuna Estrella',
+   '11111111-1111-1111-1111-111111111101', '22222222-2222-2222-2222-222222222201',
+   'Cuna funcional con motivos de estrellas, perfecta para un cuarto de ensueño.',
+   'MDF 15mm con detalles tallados. Incluye cajón debajo. Baranda frontal rebatible. Acabado lacado.',
+   520000, 'cuna', 200000),
+  ('33333333-3333-3333-3333-333333333303', 'CUN-NUB-003', 'Cuna Nube',
+   '11111111-1111-1111-1111-111111111101', '22222222-2222-2222-2222-222222222201',
+   'Cuna funcional con forma de nube suave, diseño minimalista y tierno.',
+   'MDF 18mm. Diseño recortado de nube en cabecera y piecera. Ruedas de silicone. Terminación suave al tacto.',
+   480000, 'cuna', 100000),
+  ('33333333-3333-3333-3333-333333333304', 'CAM-INF-001', 'Cama Infantil Safari',
+   '11111111-1111-1111-1111-111111111102', '22222222-2222-2222-2222-222222222203',
+   'Cama infantil con divertidos motivos de safari, perfecta para los más aventureros.',
+   'Estructura en MDF 18mm con serigrafía de animales. Baranda de seguridad lateral desmontable. Incluye repisa en piecera.',
+   380000, 'ninguno', 0),
+  ('33333333-3333-3333-3333-333333333305', 'CAM-JUV-001', 'Cama Juvenil Nordic',
+   '11111111-1111-1111-1111-111111111102', '22222222-2222-2222-2222-222222222204',
+   'Cama juvenil estilo nórdico, limpia y moderna para adolescentes.',
+   'MDF 18mm con melamina de alta calidad. Líneas rectas y minimalistas. Disponible en varios colores.',
+   420000, 'ninguno', 0),
+  ('33333333-3333-3333-3333-333333333306', 'COM-CAM-001', 'Cómoda Cambiador Daisy',
+   '11111111-1111-1111-1111-111111111103', '22222222-2222-2222-2222-222222222205',
+   'Cómoda con cambiador integrado, diseño de margaritas para un toque dulce.',
+   'MDF 18mm con 4 cajones con rieles silenciosos. Superficie superior como cambiador. Detalles serigrafiados.',
+   380000, 'ninguno', 0),
+  ('33333333-3333-3333-3333-333333333307', 'ROP-2P-001', 'Ropero 2 Puertas Rainbow',
+   '11111111-1111-1111-1111-111111111104', '22222222-2222-2222-2222-222222222207',
+   'Ropero de 2 puertas con arcoíris en las puertas, funcional y decorativo.',
+   'MDF 18mm. Puertas con bisagras de cierre suave. Interior con repisa y colgador. Acabado lacado mate.',
+   520000, 'ninguno', 0),
+  ('33333333-3333-3333-3333-333333333308', 'ESC-001', 'Escritorio Explorer',
+   '11111111-1111-1111-1111-111111111105', '22222222-2222-2222-2222-222222222209',
+   'Escritorio con repisa integrada, perfecto para la hora de tarea.',
+   'MDF 15mm con estructura robusta. Repisa superior para libros. Cajón para útiles. Patas con niveladores.',
+   280000, 'ninguno', 0)
+ON CONFLICT DO NOTHING;
+
+-- Opciones de productos
+INSERT INTO producto_opciones (id, producto_id, tipo, nombre, requerida, orden) VALUES
+  -- Cuna Luna
+  ('44444444-4444-4444-4444-444444444401', '33333333-3333-3333-3333-333333333301', 'medida', 'Medida', true, 1),
+  ('44444444-4444-4444-4444-444444444402', '33333333-3333-3333-3333-333333333301', 'colchon', 'Colchón', false, 2),
+  ('44444444-4444-4444-4444-444444444403', '33333333-3333-3333-3333-333333333301', 'lenceria', 'Lencería', false, 3),
+  -- Cuna Estrella
+  ('44444444-4444-4444-4444-444444444404', '33333333-3333-3333-3333-333333333302', 'medida', 'Medida', true, 1),
+  ('44444444-4444-4444-4444-444444444405', '33333333-3333-3333-3333-333333333302', 'colchon', 'Colchón', false, 2),
+  ('44444444-4444-4444-4444-444444444406', '33333333-3333-3333-3333-333333333302', 'lenceria', 'Lencería', false, 3),
+  -- Cuna Nube
+  ('44444444-4444-4444-4444-444444444407', '33333333-3333-3333-3333-333333333303', 'medida', 'Medida', true, 1),
+  ('44444444-4444-4444-4444-444444444408', '33333333-3333-3333-3333-333333333303', 'colchon', 'Colchón', false, 2),
+  ('44444444-4444-4444-4444-444444444409', '33333333-3333-3333-3333-333333333303', 'lenceria', 'Lencería', false, 3),
+  -- Cama Infantil Safari
+  ('44444444-4444-4444-4444-444444444410', '33333333-3333-3333-3333-333333333304', 'medida', 'Medida', true, 1),
+  ('44444444-4444-4444-4444-444444444411', '33333333-3333-3333-3333-333333333304', 'colchon', 'Colchón', false, 2),
+  -- Cómoda Cambiador Daisy
+  ('44444444-4444-4444-4444-444444444412', '33333333-3333-3333-3333-333333333306', 'medida', 'Acabado', true, 1),
+  -- Ropero 2 Puertas Rainbow
+  ('44444444-4444-4444-4444-444444444413', '33333333-3333-3333-3333-333333333307', 'medida', 'Medida', true, 1)
+ON CONFLICT DO NOTHING;
+
+-- Valores de opciones
+INSERT INTO producto_opcion_valores (id, opcion_id, nombre, precio_incremento) VALUES
+  -- Medidas Cuna Luna
+  ('55555555-5555-5555-5555-555555555501', '44444444-4444-4444-4444-444444444401', '120x60', 0),
+  ('55555555-5555-5555-5555-555555555502', '44444444-4444-4444-4444-444444444401', '130x70', 50000),
+  ('55555555-5555-5555-5555-555555555503', '44444444-4444-4444-4444-444444444401', '140x70', 80000),
+  -- Colchón Cuna Luna
+  ('55555555-5555-5555-5555-555555555504', '44444444-4444-4444-4444-444444444402', 'Sin colchón', 0),
+  ('55555555-5555-5555-5555-555555555505', '44444444-4444-4444-4444-444444444402', 'Colchón 120x60', 120000),
+  ('55555555-5555-5555-5555-555555555506', '44444444-4444-4444-4444-444444444402', 'Colchón 130x70', 140000),
+  ('55555555-5555-5555-5555-555555555507', '44444444-4444-4444-4444-444444444402', 'Colchón 140x70', 160000),
+  -- Lencería Cuna Luna
+  ('55555555-5555-5555-5555-555555555508', '44444444-4444-4444-4444-444444444403', 'Sin lencería', 0),
+  ('55555555-5555-5555-5555-555555555509', '44444444-4444-4444-4444-444444444403', 'Lencería Básica', 85000),
+  ('55555555-5555-5555-5555-555555555510', '44444444-4444-4444-4444-444444444403', 'Lencería Premium', 150000),
+  -- Medidas Cuna Estrella
+  ('55555555-5555-5555-5555-555555555511', '44444444-4444-4444-4444-444444444404', '120x60', 0),
+  ('55555555-5555-5555-5555-555555555512', '44444444-4444-4444-4444-444444444404', '130x70', 50000),
+  ('55555555-5555-5555-5555-555555555513', '44444444-4444-4444-4444-444444444404', '140x70', 80000),
+  -- Colchón Cuna Estrella
+  ('55555555-5555-5555-5555-555555555514', '44444444-4444-4444-4444-444444444405', 'Sin colchón', 0),
+  ('55555555-5555-5555-5555-555555555515', '44444444-4444-4444-4444-444444444405', 'Colchón 120x60', 120000),
+  ('55555555-5555-5555-5555-555555555516', '44444444-4444-4444-4444-444444444405', 'Colchón 130x70', 140000),
+  ('55555555-5555-5555-5555-555555555517', '44444444-4444-4444-4444-444444444405', 'Colchón 140x70', 160000),
+  -- Lencería Cuna Estrella
+  ('55555555-5555-5555-5555-555555555518', '44444444-4444-4444-4444-444444444406', 'Sin lencería', 0),
+  ('55555555-5555-5555-5555-555555555519', '44444444-4444-4444-4444-444444444406', 'Lencería Básica', 85000),
+  ('55555555-5555-5555-5555-555555555520', '44444444-4444-4444-4444-444444444406', 'Lencería Premium', 150000),
+  -- Medidas Cuna Nube
+  ('55555555-5555-5555-5555-555555555521', '44444444-4444-4444-4444-444444444407', '120x60', 0),
+  ('55555555-5555-5555-5555-555555555522', '44444444-4444-4444-4444-444444444407', '130x70', 50000),
+  -- Colchón Cuna Nube
+  ('55555555-5555-5555-5555-555555555523', '44444444-4444-4444-4444-444444444408', 'Sin colchón', 0),
+  ('55555555-5555-5555-5555-555555555524', '44444444-4444-4444-4444-444444444408', 'Colchón 120x60', 120000),
+  -- Lencería Cuna Nube
+  ('55555555-5555-5555-5555-555555555525', '44444444-4444-4444-4444-444444444409', 'Sin lencería', 0),
+  ('55555555-5555-5555-5555-555555555526', '44444444-4444-4444-4444-444444444409', 'Lencería Básica', 85000),
+  -- Medidas Cama Infantil
+  ('55555555-5555-5555-5555-555555555527', '44444444-4444-4444-4444-444444444410', '80x160', 0),
+  ('55555555-5555-5555-5555-555555555528', '44444444-4444-4444-4444-444444444410', '80x180', 40000),
+  ('55555555-5555-5555-5555-555555555529', '44444444-4444-4444-4444-444444444410', '90x190', 60000),
+  -- Colchón Cama Infantil
+  ('55555555-5555-5555-5555-555555555530', '44444444-4444-4444-4444-444444444411', 'Sin colchón', 0),
+  ('55555555-5555-5555-5555-555555555531', '44444444-4444-4444-4444-444444444411', 'Colchón 80x160', 150000),
+  ('55555555-5555-5555-5555-555555555532', '44444444-4444-4444-4444-444444444411', 'Colchón 80x180', 170000),
+  ('55555555-5555-5555-5555-555555555533', '44444444-4444-4444-4444-444444444411', 'Colchón 90x190', 190000),
+  -- Acabado Cómoda
+  ('55555555-5555-5555-5555-555555555534', '44444444-4444-4444-4444-444444444412', 'Blanco', 0),
+  ('55555555-5555-5555-5555-555555555535', '44444444-4444-4444-4444-444444444412', 'Natural', 20000),
+  ('55555555-5555-5555-5555-555555555536', '44444444-4444-4444-4444-444444444412', 'Gris', 30000),
+  -- Medidas Ropero
+  ('55555555-5555-5555-5555-555555555537', '44444444-4444-4444-4444-444444444413', '1.20m ancho', 0),
+  ('55555555-5555-5555-5555-555555555538', '44444444-4444-4444-4444-444444444413', '1.50m ancho', 80000),
+  ('55555555-5555-5555-5555-555555555539', '44444444-4444-4444-4444-444444444413', '1.80m ancho', 150000)
 ON CONFLICT DO NOTHING;
 
 -- Usuario admin inicial (contraseña: admin123 - cambiar en producción)
 -- NOTA: En producción usar auth.users de Supabase y bcrypt
 INSERT INTO usuarios (id, nombre, email, password_hash, rol) VALUES
-  ('usr-1', 'Administrador', 'admin@vivanticos.com', 'admin123', 'admin'),
-  ('usr-2', 'Alejandro Torres', 'jefe@vivanticos.com', 'jefe123', 'jefe'),
-  ('usr-3', 'Carolina Vargas', 'vendedor@vivanticos.com', 'vendedor123', 'vendedor')
+  ('66666666-6666-6666-6666-666666666601', 'Administrador', 'admin@vivanticos.com', 'admin123', 'admin'),
+  ('66666666-6666-6666-6666-666666666602', 'Alejandro Torres', 'jefe@vivanticos.com', 'jefe123', 'jefe'),
+  ('66666666-6666-6666-6666-666666666603', 'Carolina Vargas', 'vendedor@vivanticos.com', 'vendedor123', 'vendedor')
 ON CONFLICT DO NOTHING;
