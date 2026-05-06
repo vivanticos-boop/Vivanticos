@@ -122,6 +122,7 @@ export function ProductoFormView() {
   const opcionValores = useCatalogoStore(s => s.opcionValores);
   const addProducto = useCatalogoStore(s => s.addProducto);
   const updateProducto = useCatalogoStore(s => s.updateProducto);
+  const saveProductoToSupabase = useCatalogoStore(s => s.saveProductoToSupabase);
 
   const isEditing = !!selectedProductoId;
   const existingProducto = isEditing
@@ -332,7 +333,7 @@ export function ProductoFormView() {
   };
 
   // --- Submit ---
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!codigo.trim()) {
       toast.error('El código es obligatorio');
       return;
@@ -374,11 +375,8 @@ export function ProductoFormView() {
       actualizado_en: now,
     };
 
-    if (isEditing) {
-      updateProducto(productoData);
-    } else {
-      addProducto(productoData);
-    }
+    // Save to Supabase (with local fallback)
+    await saveProductoToSupabase(productoData, formOpciones);
 
     toast.success('Producto guardado');
     navigateTo('catalogo');

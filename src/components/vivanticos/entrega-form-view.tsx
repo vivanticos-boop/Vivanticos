@@ -124,7 +124,7 @@ export function EntregaFormView() {
 
   // Compute initial state lazily from existing data
   const initialState = useMemo(
-    () => getInitialFormState(existingEntrega, linkedCotizacion),
+    () => getInitialFormState(existingEntrega ?? null, linkedCotizacion ?? null),
     [existingEntrega, linkedCotizacion]
   );
 

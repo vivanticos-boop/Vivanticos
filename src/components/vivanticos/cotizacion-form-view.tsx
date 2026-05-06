@@ -68,7 +68,21 @@ export function CotizacionFormView() {
   const productos = useCatalogoStore(s => s.productos);
   const getOpcionesByProducto = useCatalogoStore(s => s.getOpcionesByProducto);
   const getValoresByOpcion = useCatalogoStore(s => s.getValoresByOpcion);
-  const getProductoPrecioConOpciones = useCatalogoStore(s => s.getProductoPrecioConOpciones);
+  // Helper: calculate product price considering discount and option increments
+  const getProductoPrecioConOpciones = (productoId: string, optionSels: Record<string, string>): number => {
+    const prod = productos.find(p => p.id === productoId);
+    if (!prod) return 0;
+    const basePrice = prod.precio_descuento > 0 ? prod.precio_descuento : prod.precio_base;
+    const opciones = getOpcionesByProducto(productoId);
+    let increments = 0;
+    for (const [opId, valId] of Object.entries(optionSels)) {
+      const opcion = opciones.find(o => o.id === opId);
+      if (!opcion) continue;
+      const valor = getValoresByOpcion(opId).find(v => v.id === valId);
+      if (valor) increments += valor.precio_incremento;
+    }
+    return basePrice + increments;
+  };
 
   const isEditing = !!selectedCotizacionId;
   const existingCotizacion = isEditing
@@ -152,22 +166,13 @@ export function CotizacionFormView() {
   // Totals
   const totals = useMemo(() => {
     const subtotal = items.reduce((sum, item) => sum + item.subtotal * item.cantidad, 0);
-    // Calculate discounts based on product types
+    // Calculate discount: difference between base price and discounted price per item
     const descuento = items.reduce((sum, item) => {
       const producto = productos.find(p => p.id === item.producto_id);
-      if (!producto || producto.descuento_tipo === 'ninguno' || !producto.descuento_tipo) return sum;
-      // If colchon discount type, check if a colchon was selected
-      if (producto.descuento_tipo === 'colchon') {
-        const hasColchon = item.opciones_seleccionadas.some(
-          op => op.opcion_nombre.toLowerCase().includes('colch') && op.precio_incremento > 0
-        );
-        if (hasColchon) return sum + (producto.descuento_valor || 0);
-      }
-      // If cuna discount type, always apply
-      if (producto.descuento_tipo === 'cuna') {
-        return sum + (producto.descuento_valor || 0);
-      }
-      return sum;
+      if (!producto || producto.precio_descuento <= 0) return sum;
+      // Descuento por producto = diferencia entre precio base y precio descuento
+      const diff = producto.precio_base - producto.precio_descuento;
+      return sum + (diff * item.cantidad);
     }, 0);
     return { subtotal, descuento, total: subtotal - descuento };
   }, [items, productos]);
@@ -202,6 +207,7 @@ export function CotizacionFormView() {
 
     const opcionesSeleccionadas = buildOpcionesSeleccionadas(selectedProducto.id, optionSelections);
     const precio = getProductoPrecioConOpciones(selectedProducto.id, optionSelections);
+    // Nota: precio ya incluye precio_descuento si aplica
 
     const newItem: FormItem = {
       id: generateId(),
@@ -554,9 +560,9 @@ export function CotizacionFormView() {
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="text-xs text-muted-foreground font-medium">#{index + 1}</span>
                         <span className="text-sm font-semibold truncate">{item.producto_nombre}</span>
-                        {producto?.descuento_tipo && producto.descuento_tipo !== 'ninguno' && (
+                        {producto && producto.precio_descuento > 0 && producto.precio_descuento < producto.precio_base && (
                           <Badge className="bg-viv-rose/15 text-viv-rose-dark border-0 text-[10px]">
-                            Descuento
+                            Oferta
                           </Badge>
                         )}
                       </div>

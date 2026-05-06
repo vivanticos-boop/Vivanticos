@@ -1,11 +1,13 @@
 // ==========================================
 // STORE DE DATOS (CATÁLOGO) - VIVANTICOS
+// Con integración Supabase + datos demo fallback
 // ==========================================
 
 import { create } from 'zustand';
 import type { Categoria, Subcategoria, Producto, ProductoOpcion, ProductoOpcionValor } from '@/types';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
-// --- Datos demo ---
+// --- Datos demo (fallback cuando no hay Supabase) ---
 const DEMO_CATEGORIAS: Categoria[] = [
   { id: 'cat1', nombre: 'Cunas', icono: '🛏️', orden: 1, activa: true },
   { id: 'cat2', nombre: 'Camas', icono: '🛏️', orden: 2, activa: true },
@@ -179,6 +181,8 @@ interface CatalogoState {
   searchTerm: string;
   filtroCategoria: string | null;
   filtroSubcategoria: string | null;
+  isLoaded: boolean;
+  isLoading: boolean;
   setSearchTerm: (term: string) => void;
   setFiltroCategoria: (catId: string | null) => void;
   setFiltroSubcategoria: (subId: string | null) => void;
@@ -194,6 +198,9 @@ interface CatalogoState {
   getOpcionesByProducto: (productoId: string) => ProductoOpcion[];
   getValoresByOpcion: (opcionId: string) => ProductoOpcionValor[];
   filteredProductos: () => Producto[];
+  loadFromSupabase: () => Promise<void>;
+  saveProductoToSupabase: (p: Producto, opciones?: any[]) => Promise<boolean>;
+  deleteProductoFromSupabase: (id: string) => Promise<boolean>;
 }
 
 export const useCatalogoStore = create<CatalogoState>((set, get) => ({
@@ -205,6 +212,8 @@ export const useCatalogoStore = create<CatalogoState>((set, get) => ({
   searchTerm: '',
   filtroCategoria: null,
   filtroSubcategoria: null,
+  isLoaded: false,
+  isLoading: false,
 
   setSearchTerm: (term) => set({ searchTerm: term }),
   setFiltroCategoria: (catId) => set({ filtroCategoria: catId, filtroSubcategoria: null }),
@@ -247,5 +256,210 @@ export const useCatalogoStore = create<CatalogoState>((set, get) => ({
       const matchSubcategoria = !filtroSubcategoria || p.subcategoria_id === filtroSubcategoria;
       return matchSearch && matchCategoria && matchSubcategoria && p.activo;
     });
+  },
+
+  // --- Cargar datos desde Supabase ---
+  loadFromSupabase: async () => {
+    if (!isSupabaseConfigured() || !supabase) {
+      console.log('Supabase no configurado, usando datos demo');
+      set({ isLoaded: true });
+      return;
+    }
+
+    if (get().isLoading) return;
+    set({ isLoading: true });
+
+    try {
+      // Cargar categorías
+      const { data: catData, error: catError } = await supabase
+        .from('categorias')
+        .select('*')
+        .order('orden');
+      if (catError) throw catError;
+
+      // Cargar subcategorías
+      const { data: subData, error: subError } = await supabase
+        .from('subcategorias')
+        .select('*')
+        .order('orden');
+      if (subError) throw subError;
+
+      // Cargar productos
+      const { data: prodData, error: prodError } = await supabase
+        .from('productos')
+        .select('*')
+        .order('nombre');
+      if (prodError) throw prodError;
+
+      // Cargar opciones
+      const { data: opData, error: opError } = await supabase
+        .from('producto_opciones')
+        .select('*')
+        .order('orden');
+      if (opError) throw opError;
+
+      // Cargar valores de opciones
+      const { data: valData, error: valError } = await supabase
+        .from('producto_opcion_valores')
+        .select('*');
+      if (valError) throw valError;
+
+      // Mapear datos de Supabase al formato de la app
+      const categorias: Categoria[] = (catData || []).map((c: any) => ({
+        id: c.id,
+        nombre: c.nombre,
+        icono: c.icono || undefined,
+        orden: c.orden || 0,
+        activa: c.activa ?? true,
+      }));
+
+      const subcategorias: Subcategoria[] = (subData || []).map((s: any) => ({
+        id: s.id,
+        categoria_id: s.categoria_id,
+        nombre: s.nombre,
+        orden: s.orden || 0,
+        activa: s.activa ?? true,
+      }));
+
+      const productos: Producto[] = (prodData || []).map((p: any) => ({
+        id: p.id,
+        codigo: p.codigo,
+        nombre: p.nombre,
+        categoria_id: p.categoria_id,
+        subcategoria_id: p.subcategoria_id || undefined,
+        descripcion: p.descripcion || '',
+        medidas: p.medidas || '',
+        material: p.material || '',
+        garantia: p.garantia || '',
+        precio_base: p.precio_base || 0,
+        precio_descuento: p.precio_descuento || 0,
+        entrega_inmediata: p.entrega_inmediata ?? false,
+        imagenes: p.imagenes || [],
+        activo: p.activo ?? true,
+        creado_en: p.creado_en || new Date().toISOString(),
+        actualizado_en: p.actualizado_en || new Date().toISOString(),
+      }));
+
+      const opciones: ProductoOpcion[] = (opData || []).map((o: any) => ({
+        id: o.id,
+        producto_id: o.producto_id,
+        tipo: o.tipo,
+        nombre: o.nombre,
+        requerida: o.requerida ?? false,
+        orden: o.orden || 0,
+      }));
+
+      const opcionValores: ProductoOpcionValor[] = (valData || []).map((v: any) => ({
+        id: v.id,
+        opcion_id: v.opcion_id,
+        nombre: v.nombre,
+        precio_incremento: v.precio_incremento || 0,
+        activo: v.activo ?? true,
+      }));
+
+      set({
+        categorias,
+        subcategorias,
+        productos,
+        opciones,
+        opcionValores,
+        isLoaded: true,
+        isLoading: false,
+      });
+
+      console.log(`Catálogo cargado desde Supabase: ${productos.length} productos, ${categorias.length} categorías`);
+    } catch (error) {
+      console.error('Error cargando datos desde Supabase:', error);
+      set({ isLoaded: true, isLoading: false });
+    }
+  },
+
+  // --- Guardar producto en Supabase ---
+  saveProductoToSupabase: async (p: Producto, opciones?: any[]) => {
+    if (!isSupabaseConfigured() || !supabase) {
+      // Solo actualizar store local
+      const exists = get().productos.find(prod => prod.id === p.id);
+      if (exists) {
+        get().updateProducto(p);
+      } else {
+        get().addProducto(p);
+      }
+      return true;
+    }
+
+    try {
+      const productoData = {
+        codigo: p.codigo,
+        nombre: p.nombre,
+        categoria_id: p.categoria_id,
+        subcategoria_id: p.subcategoria_id || null,
+        descripcion: p.descripcion,
+        medidas: p.medidas,
+        material: p.material,
+        garantia: p.garantia,
+        precio_base: p.precio_base,
+        precio_descuento: p.precio_descuento,
+        entrega_inmediata: p.entrega_inmediata,
+        imagenes: p.imagenes,
+        activo: p.activo,
+      };
+
+      const existing = get().productos.find(prod => prod.id === p.id);
+
+      if (existing) {
+        // Update
+        const { error } = await supabase
+          .from('productos')
+          .update(productoData)
+          .eq('id', p.id);
+        if (error) throw error;
+        get().updateProducto(p);
+      } else {
+        // Insert
+        const { data, error } = await supabase
+          .from('productos')
+          .insert(productoData)
+          .select()
+          .single();
+        if (error) throw error;
+        // Use the Supabase-generated ID
+        const newProducto = { ...p, id: data.id };
+        get().addProducto(newProducto);
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error guardando producto en Supabase:', error);
+      // Fallback: actualizar solo localmente
+      const exists = get().productos.find(prod => prod.id === p.id);
+      if (exists) {
+        get().updateProducto(p);
+      } else {
+        get().addProducto(p);
+      }
+      return false;
+    }
+  },
+
+  // --- Eliminar producto de Supabase ---
+  deleteProductoFromSupabase: async (id: string) => {
+    if (!isSupabaseConfigured() || !supabase) {
+      get().deleteProducto(id);
+      return true;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('productos')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      get().deleteProducto(id);
+      return true;
+    } catch (error) {
+      console.error('Error eliminando producto de Supabase:', error);
+      get().deleteProducto(id);
+      return false;
+    }
   },
 }));

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useAppStore } from '@/stores/app-store';
 import { useCatalogoStore } from '@/stores/data-store';
 import { Button } from '@/components/ui/button';
@@ -30,9 +30,9 @@ export function ProductoDetalleView() {
   const getOpcionesByProducto = useCatalogoStore(s => s.getOpcionesByProducto);
   const getValoresByOpcion = useCatalogoStore(s => s.getValoresByOpcion);
   const deleteProducto = useCatalogoStore(s => s.deleteProducto);
+  const deleteProductoFromSupabase = useCatalogoStore(s => s.deleteProductoFromSupabase);
 
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);
-  const pdfRef = useRef<HTMLDivElement>(null);
 
   const producto = productos.find(p => p.id === selectedProductoId);
   if (!producto) return <div>Producto no encontrado</div>;
@@ -50,9 +50,9 @@ export function ProductoDetalleView() {
   // Up to 4 images
   const imagenes = producto.imagenes.slice(0, 4);
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (confirm('¿Estás seguro de eliminar este producto?')) {
-      deleteProducto(producto.id);
+      await deleteProductoFromSupabase(producto.id);
       toast.success('Producto eliminado');
       navigateTo('catalogo');
     }
@@ -76,7 +76,7 @@ export function ProductoDetalleView() {
     // Add up to 4 image URLs
     if (imagenes.length > 0) {
       msg += '\n\n';
-      imagenes.forEach((img, i) => {
+      imagenes.forEach((img) => {
         msg += img + '\n';
       });
     }
