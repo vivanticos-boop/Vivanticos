@@ -28,6 +28,7 @@ import {
 import { getRolName, getRolColor, formatDateTime } from '@/lib/utils';
 import { toast } from 'sonner';
 import { usePwaInstall } from '@/hooks/use-pwa-install';
+import { useSwUpdate } from '@/hooks/use-sw-update';
 
 function getInitials(nombre: string): string {
   return nombre
@@ -52,6 +53,7 @@ export function ConfiguracionView() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const { canInstall, isInstalled, isIOS, promptInstall } = usePwaInstall();
+  const { checkForUpdate, applyUpdate, hasUpdate, isUpdating } = useSwUpdate();
   const [justInstalled, setJustInstalled] = useState(false);
 
   if (!currentUser) return null;
@@ -60,11 +62,18 @@ export function ConfiguracionView() {
     setIsSyncing(true);
     setIsLoading(true);
     try {
-      // Simulate sync delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      const now = new Date().toISOString();
-      setLastSync(now);
-      toast.success('Datos sincronizados');
+      // Check for app updates
+      await checkForUpdate();
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      if (hasUpdate) {
+        toast.success('Actualización encontrada. Actualizando...');
+        await applyUpdate();
+      } else {
+        const now = new Date().toISOString();
+        setLastSync(now);
+        toast.success('Datos sincronizados. Estás en la versión más reciente');
+      }
     } catch {
       toast.error('Error al sincronizar');
     } finally {
@@ -265,9 +274,9 @@ export function ConfiguracionView() {
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <p className="text-sm font-medium">Sincronizar datos</p>
+              <p className="text-sm font-medium">Sincronizar y actualizar</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Actualiza los datos con el servidor
+                Sincroniza datos y busca actualizaciones de la app
               </p>
               {lastSync && (
                 <div className="flex items-center gap-1 mt-1.5 text-xs text-muted-foreground">
@@ -286,7 +295,7 @@ export function ConfiguracionView() {
                 size={14}
                 className={`mr-1.5 ${isSyncing ? 'animate-spin' : ''}`}
               />
-              {isSyncing ? 'Sincronizando...' : 'Sincronizar'}
+              {isSyncing ? 'Buscando...' : hasUpdate ? 'Actualizar ahora' : 'Sincronizar'}
             </Button>
           </div>
 

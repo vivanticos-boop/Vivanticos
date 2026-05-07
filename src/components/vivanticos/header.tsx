@@ -11,6 +11,7 @@ import {
 import { Menu, Bell, LogOut, RefreshCw, Clock } from 'lucide-react';
 import { formatDateTime } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useSwUpdate } from '@/hooks/use-sw-update';
 
 export function Header() {
   const currentUser = useAppStore(s => s.currentUser);
@@ -20,13 +21,20 @@ export function Header() {
   const unreadCount = useAppStore(s => s.unreadCount());
   const markNotificacionLeida = useAppStore(s => s.markNotificacionLeida);
   const lastSync = useAppStore(s => s.lastSync);
+  const { checkForUpdate, applyUpdate, hasUpdate, isUpdating } = useSwUpdate();
 
   const handleSync = async () => {
     useAppStore.getState().setIsLoading(true);
-    await new Promise(r => setTimeout(r, 1000));
-    useAppStore.getState().setLastSync(new Date().toISOString());
+    await checkForUpdate();
+    await new Promise(r => setTimeout(r, 800));
+    if (hasUpdate) {
+      toast.success('Actualización encontrada. Actualizando...');
+      await applyUpdate();
+    } else {
+      useAppStore.getState().setLastSync(new Date().toISOString());
+      toast.success('Sincronizado. Versión más reciente');
+    }
     useAppStore.getState().setIsLoading(false);
-    toast.success('Datos sincronizados');
   };
 
   return (

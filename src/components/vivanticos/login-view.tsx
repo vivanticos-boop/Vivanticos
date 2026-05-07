@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Eye, EyeOff, RefreshCw, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, RefreshCw, Loader2, Download } from 'lucide-react';
 import { toast } from 'sonner';
+import { useSwUpdate } from '@/hooks/use-sw-update';
 
 export function LoginView() {
   const login = useAppStore(s => s.login);
@@ -16,6 +17,7 @@ export function LoginView() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const { checkForUpdate, applyUpdate, hasUpdate, isUpdating } = useSwUpdate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,8 +33,14 @@ export function LoginView() {
 
   const handleSync = async () => {
     setSyncing(true);
-    await new Promise(r => setTimeout(r, 1500));
-    toast.success('Datos sincronizados correctamente');
+    await checkForUpdate();
+    await new Promise(r => setTimeout(r, 1000));
+    if (hasUpdate) {
+      toast.success('Actualización encontrada. Actualizando...');
+      await applyUpdate();
+    } else {
+      toast.success('Estás en la versión más reciente');
+    }
     setSyncing(false);
   };
 
@@ -109,16 +117,16 @@ export function LoginView() {
             <div className="mt-6 flex gap-2">
               <Button
                 variant="outline"
-                className="flex-1 h-10 border-viv-beige text-viv-beige-dark hover:bg-viv-beige/10"
+                className="flex-1 h-10 border-viv-sage text-viv-sage-dark hover:bg-viv-sage/10"
                 onClick={handleSync}
-                disabled={syncing}
+                disabled={syncing || isUpdating}
               >
                 {syncing ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <RefreshCw size={16} className="mr-2" />
                 )}
-                Refrescar
+                {syncing ? 'Buscando...' : hasUpdate ? 'Actualizar' : 'Actualizar App'}
               </Button>
               <Button
                 variant="outline"
