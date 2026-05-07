@@ -141,10 +141,9 @@ export function LoginView() {
             <div className="mt-6 p-3 rounded-lg bg-viv-peach/10 border border-viv-peach/30">
               <p className="text-xs text-muted-foreground font-medium mb-2">Credenciales de demo:</p>
               <div className="space-y-1 text-xs text-muted-foreground">
-                <p><span className="font-medium">Admin:</span> admin@vivanticos.com</p>
-                <p><span className="font-medium">Jefe:</span> jefe@vivanticos.com</p>
-                <p><span className="font-medium">Vendedor:</span> vendedor@vivanticos.com</p>
-                <p className="text-[10px] opacity-70">Cualquier contraseña funciona en demo</p>
+                <p><span className="font-medium">Admin:</span> admin@vivanticos.com / Vivanticos2025</p>
+                <p><span className="font-medium">Jefe:</span> jefe@vivanticos.com / Vivanticos2025</p>
+                <p><span className="font-medium">Vendedor:</span> vendedor@vivanticos.com / Vivanticos2025</p>
               </div>
             </div>
           </CardContent>

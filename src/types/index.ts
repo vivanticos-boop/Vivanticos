@@ -105,6 +105,7 @@ export interface Usuario {
   id: string;
   nombre: string;
   email: string;
+  password: string;
   rol: UserRole;
   activo: boolean;
   telefono?: string;

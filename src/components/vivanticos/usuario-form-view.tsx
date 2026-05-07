@@ -25,6 +25,10 @@ import {
   Mail,
   Phone,
   Shield,
+  Lock,
+  Eye,
+  EyeOff,
+  Check,
 } from 'lucide-react';
 import { generateId, getRolName } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -64,10 +68,29 @@ export function UsuarioFormView() {
   // Form state
   const [nombre, setNombre] = useState(existingUsuario?.nombre ?? '');
   const [email, setEmail] = useState(existingUsuario?.email ?? '');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [telefono, setTelefono] = useState(existingUsuario?.telefono ?? '');
   const [rol, setRol] = useState<UserRole>(existingUsuario?.rol ?? 'vendedor');
   const [activo, setActivo] = useState(existingUsuario?.activo ?? true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Password strength
+  const passwordStrength = useMemo(() => {
+    if (!password) return { score: 0, label: '', color: '' };
+    let score = 0;
+    if (password.length >= 6) score++;
+    if (password.length >= 8) score++;
+    if (/[A-Z]/.test(password)) score++;
+    if (/[0-9]/.test(password)) score++;
+    if (/[^A-Za-z0-9]/.test(password)) score++;
+
+    if (score <= 2) return { score, label: 'Débil', color: 'text-red-500' };
+    if (score <= 3) return { score, label: 'Media', color: 'text-yellow-500' };
+    return { score, label: 'Fuerte', color: 'text-green-500' };
+  }, [password]);
 
   // Permission check: only admin and jefe can access
   if (currentUser?.rol === 'vendedor') {
@@ -144,6 +167,32 @@ export function UsuarioFormView() {
       return;
     }
 
+    // Password validation: required for new users, optional for editing
+    if (!isEditing) {
+      if (!password) {
+        toast.error('La contraseña es obligatoria');
+        return;
+      }
+      if (password.length < 6) {
+        toast.error('La contraseña debe tener al menos 6 caracteres');
+        return;
+      }
+      if (password !== confirmPassword) {
+        toast.error('Las contraseñas no coinciden');
+        return;
+      }
+    } else if (password) {
+      // If editing and user typed a new password
+      if (password.length < 6) {
+        toast.error('La contraseña debe tener al menos 6 caracteres');
+        return;
+      }
+      if (password !== confirmPassword) {
+        toast.error('Las contraseñas no coinciden');
+        return;
+      }
+    }
+
     // Check for duplicate email (except when editing the same user)
     const duplicateEmail = usuarios.find(
       u => u.email.toLowerCase() === email.trim().toLowerCase() && u.id !== selectedUsuarioId
@@ -161,6 +210,7 @@ export function UsuarioFormView() {
       id: isEditing ? existingUsuario!.id : generateId(),
       nombre: nombre.trim(),
       email: email.trim().toLowerCase(),
+      password: password || (isEditing ? existingUsuario!.password : ''),
       telefono: telefono.trim() || undefined,
       rol,
       activo,
@@ -172,7 +222,7 @@ export function UsuarioFormView() {
       toast.success('Usuario actualizado');
     } else {
       addUsuario(usuarioData);
-      toast.success('Usuario creado');
+      toast.success('Usuario creado exitosamente');
     }
 
     navigateTo('usuarios');
@@ -265,6 +315,98 @@ export function UsuarioFormView() {
               onChange={e => setTelefono(e.target.value)}
               className="h-10"
             />
+          </div>
+
+          <Separator />
+
+          {/* Contraseña */}
+          <div className="space-y-3">
+            <Label className="text-xs font-semibold uppercase tracking-wider">
+              <Lock size={12} className="inline mr-1" />
+              {isEditing ? 'Cambiar Contraseña' : 'Contraseña *'}
+            </Label>
+            {isEditing && (
+              <p className="text-[11px] text-muted-foreground -mt-2">
+                Deja vacío para mantener la contraseña actual
+              </p>
+            )}
+
+            {/* Password field */}
+            <div className="space-y-1.5">
+              <div className="relative">
+                <Input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder={isEditing ? 'Nueva contraseña (opcional)' : 'Contraseña *'}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  className="h-10 pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              {/* Password strength indicator */}
+              {password && (
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1 flex-1">
+                    {[1, 2, 3, 4, 5].map(i => (
+                      <div
+                        key={i}
+                        className={`h-1 flex-1 rounded-full transition-colors ${
+                          i <= passwordStrength.score
+                            ? passwordStrength.score <= 2
+                              ? 'bg-red-400'
+                              : passwordStrength.score <= 3
+                              ? 'bg-yellow-400'
+                              : 'bg-green-400'
+                            : 'bg-muted'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <span className={`text-[10px] font-medium ${passwordStrength.color}`}>
+                    {passwordStrength.label}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Confirm password field */}
+            <div className="space-y-1.5">
+              <div className="relative">
+                <Input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  placeholder="Confirmar contraseña"
+                  value={confirmPassword}
+                  onChange={e => setConfirmPassword(e.target.value)}
+                  className="h-10 pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              {/* Match indicator */}
+              {confirmPassword && (
+                <div className="flex items-center gap-1.5">
+                  {password === confirmPassword ? (
+                    <>
+                      <Check size={12} className="text-green-500" />
+                      <span className="text-[10px] text-green-500 font-medium">Las contraseñas coinciden</span>
+                    </>
+                  ) : (
+                    <span className="text-[10px] text-red-500 font-medium">Las contraseñas no coinciden</span>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           <Separator />

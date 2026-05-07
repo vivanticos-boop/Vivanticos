@@ -4,6 +4,7 @@
 
 import { create } from 'zustand';
 import type { AppView, UserRole, Notificacion } from '@/types';
+import { useUsuariosStore } from '@/stores/usuarios-store';
 
 interface AppState {
   // Navegación
@@ -77,16 +78,20 @@ export const useAppStore = create<AppState>((set, get) => ({
   // Sesión
   isLoggedIn: false,
   currentUser: null,
-  login: (email, _password) => {
-    // Demo: aceptar cualquier email con contraseña "vivanticos"
-    const demoUsers: Record<string, { id: string; nombre: string; email: string; rol: UserRole }> = {
-      'admin@vivanticos.com': { id: 'u1', nombre: 'Administrador', email: 'admin@vivanticos.com', rol: 'admin' },
-      'jefe@vivanticos.com': { id: 'u2', nombre: 'Jefe Ventas', email: 'jefe@vivanticos.com', rol: 'jefe' },
-      'vendedor@vivanticos.com': { id: 'u3', nombre: 'Carolina Vargas', email: 'vendedor@vivanticos.com', rol: 'vendedor' },
-    };
-    const user = demoUsers[email];
+  login: (email, password) => {
+    // Autenticación real: valida contra el store de usuarios
+    const user = useUsuariosStore.getState().authenticate(email, password);
     if (user) {
-      set({ isLoggedIn: true, currentUser: user });
+      set({
+        isLoggedIn: true,
+        currentUser: {
+          id: user.id,
+          nombre: user.nombre,
+          email: user.email,
+          rol: user.rol,
+          avatar_url: user.avatar_url,
+        },
+      });
       return true;
     }
     return false;
