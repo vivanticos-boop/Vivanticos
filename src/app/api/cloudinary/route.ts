@@ -1,6 +1,8 @@
 // ==========================================
-// API ROUTE: CLOUDINARY UPLOAD (SIGNED)
-// Usa firma del backend — no necesita upload preset
+// API ROUTE: CLOUDINARY
+// GET  → Returns signed upload params for direct client upload
+// POST → Server-side upload (fallback, limited to 4MB)
+// DELETE → Delete image from Cloudinary
 // ==========================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -9,7 +11,41 @@ const CLOUDINARY_CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || '
 const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY || '';
 const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET || '';
 
-// POST /api/cloudinary - Upload image to Cloudinary
+// GET /api/cloudinary?folder=vivanticos/productos — Return signed upload params
+export async function GET(request: NextRequest) {
+  if (!CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) {
+    return NextResponse.json(
+      { error: 'Credenciales de Cloudinary no configuradas. Agrega CLOUDINARY_API_KEY y CLOUDINARY_API_SECRET.' },
+      { status: 503 }
+    );
+  }
+
+  try {
+    const { searchParams } = new URL(request.url);
+    const folder = searchParams.get('folder') || 'vivanticos/productos';
+
+    const crypto = await import('crypto');
+    const timestamp = Math.round(new Date().getTime() / 1000);
+
+    // Build the string to sign — params must be sorted alphabetically
+    // For upload: folder, timestamp
+    const signatureString = `folder=${folder}&timestamp=${timestamp}${CLOUDINARY_API_SECRET}`;
+    const signature = crypto.createHash('sha1').update(signatureString).digest('hex');
+
+    return NextResponse.json({
+      signature,
+      timestamp,
+      api_key: CLOUDINARY_API_KEY,
+      cloud_name: CLOUDINARY_CLOUD_NAME,
+      folder,
+    });
+  } catch (error: any) {
+    console.error('Signature generation error:', error);
+    return NextResponse.json({ error: 'Error generando firma de subida' }, { status: 500 });
+  }
+}
+
+// POST /api/cloudinary - Server-side upload (fallback, limited to 4MB)
 export async function POST(request: NextRequest) {
   if (!CLOUDINARY_CLOUD_NAME) {
     return NextResponse.json({ error: 'Cloudinary no configurado' }, { status: 503 });
@@ -24,12 +60,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No se proporcionó archivo' }, { status: 400 });
     }
 
+    // Limit to 4MB for server-side upload (base64 increases size ~33%)
+    if (file.size > 4 * 1024 * 1024) {
+      return NextResponse.json({ error: 'La imagen no debe superar 4MB para subida por servidor' }, { status: 400 });
+    }
+
     // Convert file to base64
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     const base64File = `data:${file.type};base64,${buffer.toString('base64')}`;
 
-    // Generate timestamp and signature for signed upload
     const timestamp = Math.round(new Date().getTime() / 1000);
 
     let uploadData: Record<string, string> = {
@@ -38,7 +78,6 @@ export async function POST(request: NextRequest) {
       timestamp: timestamp.toString(),
     };
 
-    // If we have API secret, do signed upload (more secure, no preset needed)
     if (CLOUDINARY_API_KEY && CLOUDINARY_API_SECRET) {
       const crypto = await import('crypto');
       const signatureString = `folder=${folder}&timestamp=${timestamp}${CLOUDINARY_API_SECRET}`;
@@ -46,12 +85,10 @@ export async function POST(request: NextRequest) {
       uploadData.api_key = CLOUDINARY_API_KEY;
       uploadData.signature = signature;
     } else {
-      // Fallback: try unsigned upload with preset
       const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'vivanticos';
       uploadData.upload_preset = uploadPreset;
     }
 
-    // Build FormData for Cloudinary
     const cloudinaryFormData = new FormData();
     Object.entries(uploadData).forEach(([key, value]) => {
       cloudinaryFormData.append(key, value);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useAppStore } from '@/stores/app-store';
 import { useCatalogoStore } from '@/stores/data-store';
 import { Button } from '@/components/ui/button';
@@ -151,57 +151,63 @@ export function ProductoFormView() {
   const [formOpciones, setFormOpciones] = useState<FormOpcion[]>(() => initialState.formOpciones);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Load Cloudinary widget script (fallback)
-  useEffect(() => {
-    if (!document.getElementById('cloudinary-widget-script')) {
-      const script = document.createElement('script');
-      script.id = 'cloudinary-widget-script';
-      script.src = 'https://upload-widget.cloudinary.com/global/all.js';
-      script.async = true;
-      document.body.appendChild(script);
-    }
-  }, []);
-
-  // --- Image upload via API route ---
+  // --- Image upload: Direct to Cloudinary with signed signature ---
   const uploadingStates = useState<Record<number, boolean>>({});
   const setUploading = (index: number, val: boolean) => {
     uploadingStates[1](prev => ({ ...prev, [index]: val }));
   };
   const isUploading = (index: number) => uploadingStates[0][index] || false;
 
+  // Hidden file input ref for reliable mobile file selection
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const pendingUploadIndex = useRef<number>(0);
+
   const handleImageUpload = async (index: number, file: File) => {
     if (!file.type.startsWith('image/')) {
       toast.error('Solo se permiten imágenes');
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('La imagen no debe superar 5MB');
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('La imagen no debe superar 10MB');
       return;
     }
 
     setUploading(index, true);
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('folder', 'vivanticos/productos');
+      // Step 1: Get signed upload params from our API
+      const signResponse = await fetch('/api/cloudinary?folder=vivanticos/productos');
+      if (!signResponse.ok) {
+        const errData = await signResponse.json();
+        throw new Error(errData.error || 'Error obteniendo firma de subida');
+      }
+      const signData = await signResponse.json();
 
-      const response = await fetch('/api/cloudinary', {
-        method: 'POST',
-        body: formData,
-      });
+      // Step 2: Upload directly to Cloudinary from the browser
+      const cloudinaryFormData = new FormData();
+      cloudinaryFormData.append('file', file);
+      cloudinaryFormData.append('api_key', signData.api_key);
+      cloudinaryFormData.append('timestamp', signData.timestamp);
+      cloudinaryFormData.append('signature', signData.signature);
+      cloudinaryFormData.append('folder', signData.folder);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Error al subir imagen');
+      const uploadResponse = await fetch(
+        `https://api.cloudinary.com/v1_1/${signData.cloud_name}/image/upload`,
+        { method: 'POST', body: cloudinaryFormData }
+      );
+
+      if (!uploadResponse.ok) {
+        const errData = await uploadResponse.json();
+        console.error('Cloudinary upload error:', errData);
+        throw new Error(errData.error?.message || 'Error al subir imagen a Cloudinary');
       }
 
-      const data = await response.json();
+      const data = await uploadResponse.json();
       const newImagenes = [...imagenes];
       if (index < newImagenes.length) {
-        newImagenes[index] = data.url;
+        newImagenes[index] = data.secure_url;
       } else {
-        newImagenes.push(data.url);
+        newImagenes.push(data.secure_url);
       }
       setImagenes(newImagenes);
       toast.success('Imagen subida correctamente');
@@ -214,61 +220,19 @@ export function ProductoFormView() {
   };
 
   const handleFileSelect = (index: number) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        handleImageUpload(index, file);
-      }
-    };
-    input.click();
+    pendingUploadIndex.current = index;
+    // Reset the input value so the same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+      fileInputRef.current.click();
+    }
   };
 
-  // Fallback: Cloudinary widget (only if API route fails)
-  const openCloudinaryWidget = (index: number) => {
-    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-    if (!cloudName) {
-      toast.error('Cloudinary no está configurado');
-      return;
+  const onFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleImageUpload(pendingUploadIndex.current, file);
     }
-    // @ts-ignore
-    if (!window.cloudinary) {
-      // Widget not loaded, use direct upload instead
-      handleFileSelect(index);
-      return;
-    }
-    // @ts-ignore
-    const widget = window.cloudinary.createUploadWidget(
-      {
-        cloudName,
-        uploadPreset,
-        folder: 'vivanticos/productos',
-        maxFiles: 1,
-        maxImageFileSize: 5000000,
-        cropping: true,
-        croppingAspectRatio: 1,
-      },
-      (error: any, result: any) => {
-        if (!error && result.event === 'success') {
-          const url = result.info.secure_url;
-          const newImagenes = [...imagenes];
-          if (index < newImagenes.length) {
-            newImagenes[index] = url;
-          } else {
-            newImagenes.push(url);
-          }
-          setImagenes(newImagenes);
-          toast.success('Imagen subida');
-        }
-        if (error) {
-          toast.error('Error al subir imagen. Intenta con el botón de subir.');
-        }
-      }
-    );
-    widget.open();
   };
   const setCategoriaId = useCallback((newCatId: string) => {
     setCategoriaIdRaw(newCatId);
@@ -453,6 +417,16 @@ export function ProductoFormView() {
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto animate-fade-in">
+      {/* Hidden file input for image upload — always in DOM for mobile compatibility */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={onFileInputChange}
+        className="hidden"
+        aria-hidden="true"
+      />
+
       {/* ========== Header ========== */}
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={goBack} aria-label="Volver">
@@ -852,7 +826,7 @@ export function ProductoFormView() {
             })}
           </div>
           <p className="text-xs text-muted-foreground mt-2">
-            Máximo 4 imágenes (máx 5MB cada una). Toca para seleccionar.
+            Máximo 4 imágenes (máx 10MB cada una). Toca para seleccionar.
           </p>
         </CardContent>
       </Card>
