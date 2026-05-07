@@ -40,9 +40,9 @@ export function AppShell() {
   };
 
   return (
-    <div className="min-h-screen flex bg-background">
+    <div className="h-[100dvh] flex flex-col bg-background overflow-hidden">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 border-r border-border bg-sidebar">
+      <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 border-r border-border bg-sidebar safe-area-top">
         <Sidebar />
       </aside>
 
@@ -53,16 +53,16 @@ export function AppShell() {
             className="fixed inset-0 bg-black/30"
             onClick={() => useAppStore.getState().setSidebarOpen(false)}
           />
-          <aside className="fixed inset-y-0 left-0 w-64 bg-sidebar z-50 animate-fade-in">
+          <aside className="fixed inset-y-0 left-0 w-64 bg-sidebar z-50 animate-fade-in safe-area-top">
             <Sidebar onClose={() => useAppStore.getState().setSidebarOpen(false)} />
           </aside>
         </div>
       )}
 
       {/* Main Content */}
-      <div className="flex-1 lg:ml-64 flex flex-col min-h-screen">
+      <div className="flex-1 lg:ml-64 flex flex-col min-h-0 overflow-hidden">
         <Header />
-        <main className="flex-1 p-4 md:p-6 pb-20 lg:pb-6 overflow-auto">
+        <main className="flex-1 p-4 md:p-6 overflow-y-auto overscroll-contain" style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}>
           <div className="animate-fade-in">
             {renderView()}
           </div>

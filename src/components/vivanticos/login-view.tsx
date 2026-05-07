@@ -37,7 +37,7 @@ export function LoginView() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#FAFAF8] via-[#F5F0EB] to-[#FAFAF8] p-4">
+    <div className="min-h-[100dvh] flex items-center justify-center bg-gradient-to-br from-[#FAFAF8] via-[#F5F0EB] to-[#FAFAF8] p-4 safe-area-top safe-area-bottom">
       <div className="w-full max-w-md animate-fade-in">
         {/* Logo */}
         <div className="text-center mb-8">

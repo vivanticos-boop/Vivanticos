@@ -30,7 +30,7 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-20 bg-card/95 backdrop-blur-md border-b border-border h-14 flex items-center px-4 md:px-6 gap-3">
+    <header className="sticky top-0 z-20 bg-card/95 backdrop-blur-md border-b border-border flex items-center px-4 md:px-6 gap-3 safe-area-top" style={{ height: 'calc(3.5rem + env(safe-area-inset-top, 0px))', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
       {/* Mobile menu button */}
       <Button
         variant="ghost"
