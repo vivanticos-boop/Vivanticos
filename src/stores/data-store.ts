@@ -362,7 +362,7 @@ export const useCatalogoStore = create<CatalogoState>((set, get) => ({
         id: o.id,
         producto_id: o.producto_id,
         nombre: o.nombre,
-        tipo: (o.tipo === 'select' || o.tipo === 'checkbox' ? o.tipo : 'select') as TipoOpcionInput,
+        tipo: (o.tipo === 'checkbox' ? 'checkbox' : 'select') as TipoOpcionInput,
         requerida: o.requerida ?? false,
         orden: o.orden || 0,
       }));
@@ -483,16 +483,42 @@ export const useCatalogoStore = create<CatalogoState>((set, get) => ({
 
           // Insert valores for this opcion
           if (op.valores && op.valores.length > 0) {
+            const incPrecio = v_incremento => v_incremento?.incremento_precio || v_incremento?.precio_incremento || 0;
             const valoresData = op.valores.map((v: any) => ({
               opcion_id: newOp.id,
               nombre: v.nombre,
-              incremento_precio: v.incremento_precio || v.precio_incremento || 0,
+              incremento_precio: incPrecio(v),
+              precio_incremento: incPrecio(v), // Also write to old column name for backward compat
               activo: v.activo ?? true,
             }));
             const { error: valErr } = await supabase
               .from('producto_opcion_valores')
               .insert(valoresData);
-            if (valErr) console.error('Error saving opcion valores:', valErr);
+            if (valErr) {
+              // If both columns fail, try with just incremento_precio
+              const valoresData2 = op.valores.map((v: any) => ({
+                opcion_id: newOp.id,
+                nombre: v.nombre,
+                incremento_precio: incPrecio(v),
+                activo: v.activo ?? true,
+              }));
+              const { error: valErr2 } = await supabase
+                .from('producto_opcion_valores')
+                .insert(valoresData2);
+              if (valErr2) {
+                // Last resort: try with just precio_incremento (old column name)
+                const valoresData3 = op.valores.map((v: any) => ({
+                  opcion_id: newOp.id,
+                  nombre: v.nombre,
+                  precio_incremento: incPrecio(v),
+                  activo: v.activo ?? true,
+                }));
+                const { error: valErr3 } = await supabase
+                  .from('producto_opcion_valores')
+                  .insert(valoresData3);
+                if (valErr3) console.error('Error saving opcion valores:', valErr3);
+              }
+            }
           }
         }
 

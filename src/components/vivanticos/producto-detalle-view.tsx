@@ -457,9 +457,9 @@ export function ProductoDetalleView() {
                                 className="text-xs border-viv-beige"
                               >
                                 {v.nombre}
-                                {v.precio_incremento > 0 && (
+                                {v.incremento_precio > 0 && (
                                   <span className="ml-1 text-viv-sage-dark font-semibold">
-                                    +{formatPrice(v.precio_incremento)}
+                                    +{formatPrice(v.incremento_precio)}
                                   </span>
                                 )}
                               </Badge>

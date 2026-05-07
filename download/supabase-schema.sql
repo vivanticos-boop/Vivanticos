@@ -60,6 +60,8 @@ CREATE TABLE IF NOT EXISTS productos (
   material TEXT DEFAULT '',
   garantia TEXT DEFAULT '',
   precio_descuento INTEGER DEFAULT 0,
+  tipo_producto TEXT NOT NULL DEFAULT 'otro' CHECK (tipo_producto IN ('cuna', 'colchon', 'lenceria', 'cambiador', 'cama', 'ropero', 'escritorio', 'accesorio', 'otro')),
+  descuento_base INTEGER DEFAULT 0,
   entrega_inmediata BOOLEAN DEFAULT false,
   creado_en TIMESTAMPTZ DEFAULT now(),
   actualizado_en TIMESTAMPTZ DEFAULT now()
@@ -71,7 +73,7 @@ CREATE TABLE IF NOT EXISTS productos (
 CREATE TABLE IF NOT EXISTS producto_opciones (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   producto_id UUID NOT NULL REFERENCES productos(id) ON DELETE CASCADE,
-  tipo TEXT NOT NULL CHECK (tipo IN ('medida', 'colchon', 'lenceria', 'extra')),
+  tipo TEXT NOT NULL CHECK (tipo IN ('select', 'checkbox')),
   nombre TEXT NOT NULL,
   requerida BOOLEAN DEFAULT false,
   orden INTEGER DEFAULT 0,
@@ -85,7 +87,7 @@ CREATE TABLE IF NOT EXISTS producto_opcion_valores (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   opcion_id UUID NOT NULL REFERENCES producto_opciones(id) ON DELETE CASCADE,
   nombre TEXT NOT NULL,
-  precio_incremento INTEGER NOT NULL DEFAULT 0,
+  incremento_precio INTEGER NOT NULL DEFAULT 0,
   activo BOOLEAN DEFAULT true,
   creado_en TIMESTAMPTZ DEFAULT now()
 );
@@ -98,6 +100,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
   nombre TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
+  password TEXT DEFAULT 'Vivanticos2025',
   rol TEXT NOT NULL CHECK (rol IN ('admin', 'jefe', 'vendedor')) DEFAULT 'vendedor',
   activo BOOLEAN DEFAULT true,
   telefono TEXT,
@@ -136,6 +139,9 @@ CREATE TABLE IF NOT EXISTS cotizacion_items (
   precio_unitario INTEGER NOT NULL DEFAULT 0,
   opciones_seleccionadas JSONB DEFAULT '[]',
   subtotal INTEGER NOT NULL DEFAULT 0,
+  configuracion JSONB DEFAULT '{}',
+  precio_total_item INTEGER NOT NULL DEFAULT 0,
+  descuento_aplicado INTEGER NOT NULL DEFAULT 0,
   creado_en TIMESTAMPTZ DEFAULT now()
 );
 
@@ -324,66 +330,66 @@ INSERT INTO subcategorias (id, categoria_id, nombre, orden) VALUES
 ON CONFLICT DO NOTHING;
 
 -- Productos
-INSERT INTO productos (id, codigo, nombre, categoria_id, subcategoria_id, descripcion, precio_base, medidas, material, garantia, precio_descuento, entrega_inmediata) VALUES
+INSERT INTO productos (id, codigo, nombre, categoria_id, subcategoria_id, descripcion, precio_base, medidas, material, garantia, precio_descuento, tipo_producto, descuento_base, entrega_inmediata) VALUES
   ('33333333-3333-3333-3333-333333333301', 'CUN-LUN-001', 'Cuna Luna',
    '11111111-1111-1111-1111-111111111101', '22222222-2222-2222-2222-222222222201',
    'Cuna funcional con diseño de luna creciente, ideal para decoraciones celestiales.',
-   450000, '120x60cm, 130x70cm, 140x70cm', 'MDF 18mm con cantos de PVC, acabado lacado mate', '6 meses por defectos de fabricación', 350000, true),
+   450000, '120x60cm, 130x70cm, 140x70cm', 'MDF 18mm con cantos de PVC, acabado lacado mate', '6 meses por defectos de fabricación', 350000, 'cuna', 100000, true),
   ('33333333-3333-3333-3333-333333333302', 'CUN-EST-002', 'Cuna Estrella',
    '11111111-1111-1111-1111-111111111101', '22222222-2222-2222-2222-222222222201',
    'Cuna funcional con motivos de estrellas, perfecta para un cuarto de ensueño.',
-   520000, '120x60cm, 130x70cm, 140x70cm', 'MDF 15mm con detalles tallados, acabado lacado', '6 meses por defectos de fabricación', 320000, true),
+   520000, '120x60cm, 130x70cm, 140x70cm', 'MDF 15mm con detalles tallados, acabado lacado', '6 meses por defectos de fabricación', 320000, 'cuna', 200000, true),
   ('33333333-3333-3333-3333-333333333303', 'CUN-NUB-003', 'Cuna Nube',
    '11111111-1111-1111-1111-111111111101', '22222222-2222-2222-2222-222222222201',
    'Cuna funcional con forma de nube suave, diseño minimalista y tierno.',
-   480000, '120x60cm, 130x70cm', 'MDF 18mm, terminación suave al tacto', '6 meses por defectos de fabricación', 380000, false),
+   480000, '120x60cm, 130x70cm', 'MDF 18mm, terminación suave al tacto', '6 meses por defectos de fabricación', 380000, 'cuna', 100000, false),
   ('33333333-3333-3333-3333-333333333304', 'CAM-INF-001', 'Cama Infantil Safari',
    '11111111-1111-1111-1111-111111111102', '22222222-2222-2222-2222-222222222203',
    'Cama infantil con divertidos motivos de safari, perfecta para los más aventureros.',
-   380000, '80x160cm, 80x180cm, 90x190cm', 'MDF 18mm con serigrafía de animales', '6 meses por defectos de fabricación', 0, true),
+   380000, '80x160cm, 80x180cm, 90x190cm', 'MDF 18mm con serigrafía de animales', '6 meses por defectos de fabricación', 0, 'cama', 0, true),
   ('33333333-3333-3333-3333-333333333305', 'CAM-JUV-001', 'Cama Juvenil Nordic',
    '11111111-1111-1111-1111-111111111102', '22222222-2222-2222-2222-222222222204',
    'Cama juvenil estilo nórdico, limpia y moderna para adolescentes.',
-   420000, '80x180cm, 90x190cm', 'MDF 18mm con melamina de alta calidad', '6 meses por defectos de fabricación', 350000, false),
+   420000, '80x180cm, 90x190cm', 'MDF 18mm con melamina de alta calidad', '6 meses por defectos de fabricación', 350000, 'cama', 0, false),
   ('33333333-3333-3333-3333-333333333306', 'COM-CAM-001', 'Cómoda Cambiador Daisy',
    '11111111-1111-1111-1111-111111111103', '22222222-2222-2222-2222-222222222205',
    'Cómoda con cambiador integrado, diseño de margaritas para un toque dulce.',
-   380000, '80x50x90cm', 'MDF 18mm con 4 cajones, rieles silenciosos', '6 meses por defectos de fabricación', 0, true),
+   380000, '80x50x90cm', 'MDF 18mm con 4 cajones, rieles silenciosos', '6 meses por defectos de fabricación', 0, 'cambiador', 0, true),
   ('33333333-3333-3333-3333-333333333307', 'ROP-2P-001', 'Ropero 2 Puertas Rainbow',
    '11111111-1111-1111-1111-111111111104', '22222222-2222-2222-2222-222222222207',
    'Ropero de 2 puertas con arcoíris en las puertas, funcional y decorativo.',
-   520000, '1.20m ancho, 1.50m ancho, 1.80m ancho', 'MDF 18mm, bisagras de cierre suave', '6 meses por defectos de fabricación', 0, false),
+   520000, '1.20m ancho, 1.50m ancho, 1.80m ancho', 'MDF 18mm, bisagras de cierre suave', '6 meses por defectos de fabricación', 0, 'ropero', 0, false),
   ('33333333-3333-3333-3333-333333333308', 'ESC-001', 'Escritorio Explorer',
    '11111111-1111-1111-1111-111111111105', '22222222-2222-2222-2222-222222222209',
    'Escritorio con repisa integrada, perfecto para la hora de tarea.',
-   280000, '100x50x75cm', 'MDF 15mm con estructura robusta, patas con niveladores', '6 meses por defectos de fabricación', 220000, true)
+   280000, '100x50x75cm', 'MDF 15mm con estructura robusta, patas con niveladores', '6 meses por defectos de fabricación', 220000, 'escritorio', 0, true)
 ON CONFLICT DO NOTHING;
 
 -- Opciones de productos
 INSERT INTO producto_opciones (id, producto_id, tipo, nombre, requerida, orden) VALUES
   -- Cuna Luna
-  ('44444444-4444-4444-4444-444444444401', '33333333-3333-3333-3333-333333333301', 'medida', 'Medida', true, 1),
-  ('44444444-4444-4444-4444-444444444402', '33333333-3333-3333-3333-333333333301', 'colchon', 'Colchón', false, 2),
-  ('44444444-4444-4444-4444-444444444403', '33333333-3333-3333-3333-333333333301', 'lenceria', 'Lencería', false, 3),
+  ('44444444-4444-4444-4444-444444444401', '33333333-3333-3333-3333-333333333301', 'select', 'Medida', true, 1),
+  ('44444444-4444-4444-4444-444444444402', '33333333-3333-3333-3333-333333333301', 'checkbox', 'Colchón', false, 2),
+  ('44444444-4444-4444-4444-444444444403', '33333333-3333-3333-3333-333333333301', 'select', 'Lencería', false, 3),
   -- Cuna Estrella
-  ('44444444-4444-4444-4444-444444444404', '33333333-3333-3333-3333-333333333302', 'medida', 'Medida', true, 1),
-  ('44444444-4444-4444-4444-444444444405', '33333333-3333-3333-3333-333333333302', 'colchon', 'Colchón', false, 2),
-  ('44444444-4444-4444-4444-444444444406', '33333333-3333-3333-3333-333333333302', 'lenceria', 'Lencería', false, 3),
+  ('44444444-4444-4444-4444-444444444404', '33333333-3333-3333-3333-333333333302', 'select', 'Medida', true, 1),
+  ('44444444-4444-4444-4444-444444444405', '33333333-3333-3333-3333-333333333302', 'checkbox', 'Colchón', false, 2),
+  ('44444444-4444-4444-4444-444444444406', '33333333-3333-3333-3333-333333333302', 'select', 'Lencería', false, 3),
   -- Cuna Nube
-  ('44444444-4444-4444-4444-444444444407', '33333333-3333-3333-3333-333333333303', 'medida', 'Medida', true, 1),
-  ('44444444-4444-4444-4444-444444444408', '33333333-3333-3333-3333-333333333303', 'colchon', 'Colchón', false, 2),
-  ('44444444-4444-4444-4444-444444444409', '33333333-3333-3333-3333-333333333303', 'lenceria', 'Lencería', false, 3),
+  ('44444444-4444-4444-4444-444444444407', '33333333-3333-3333-3333-333333333303', 'select', 'Medida', true, 1),
+  ('44444444-4444-4444-4444-444444444408', '33333333-3333-3333-3333-333333333303', 'checkbox', 'Colchón', false, 2),
+  ('44444444-4444-4444-4444-444444444409', '33333333-3333-3333-3333-333333333303', 'select', 'Lencería', false, 3),
   -- Cama Infantil Safari
-  ('44444444-4444-4444-4444-444444444410', '33333333-3333-3333-3333-333333333304', 'medida', 'Medida', true, 1),
-  ('44444444-4444-4444-4444-444444444411', '33333333-3333-3333-3333-333333333304', 'colchon', 'Colchón', false, 2),
+  ('44444444-4444-4444-4444-444444444410', '33333333-3333-3333-3333-333333333304', 'select', 'Medida', true, 1),
+  ('44444444-4444-4444-4444-444444444411', '33333333-3333-3333-3333-333333333304', 'checkbox', 'Colchón', false, 2),
   -- Cómoda Cambiador Daisy
-  ('44444444-4444-4444-4444-444444444412', '33333333-3333-3333-3333-333333333306', 'medida', 'Acabado', true, 1),
+  ('44444444-4444-4444-4444-444444444412', '33333333-3333-3333-3333-333333333306', 'select', 'Acabado', true, 1),
   -- Ropero 2 Puertas Rainbow
-  ('44444444-4444-4444-4444-444444444413', '33333333-3333-3333-3333-333333333307', 'medida', 'Medida', true, 1)
+  ('44444444-4444-4444-4444-444444444413', '33333333-3333-3333-3333-333333333307', 'select', 'Medida', true, 1)
 ON CONFLICT DO NOTHING;
 
 -- Valores de opciones
-INSERT INTO producto_opcion_valores (id, opcion_id, nombre, precio_incremento) VALUES
+INSERT INTO producto_opcion_valores (id, opcion_id, nombre, incremento_precio) VALUES
   -- Medidas Cuna Luna
   ('55555555-5555-5555-5555-555555555501', '44444444-4444-4444-4444-444444444401', '120x60', 0),
   ('55555555-5555-5555-5555-555555555502', '44444444-4444-4444-4444-444444444401', '130x70', 50000),
