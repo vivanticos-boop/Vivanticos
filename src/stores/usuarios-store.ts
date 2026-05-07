@@ -149,7 +149,7 @@ export const useUsuariosStore = create<UsuarioState>((set, get) => {
         id: u.id,
         nombre: u.nombre,
         email: u.email,
-        password: u.password || '',
+        password: u.password || u.password_hash || '', // password_hash como fallback
         rol: u.rol || 'vendedor',
         activo: u.activo ?? true,
         telefono: u.telefono || undefined,
@@ -193,6 +193,7 @@ export const useUsuariosStore = create<UsuarioState>((set, get) => {
         nombre: u.nombre,
         email: u.email,
         password: u.password,
+        password_hash: u.password, // Supabase requiere password_hash (NOT NULL o nullable)
         rol: u.rol,
         activo: u.activo,
         telefono: u.telefono || null,
