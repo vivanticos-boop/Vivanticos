@@ -151,6 +151,7 @@ export type AppView =
   | 'entrega-form'
   | 'usuarios'
   | 'usuario-form'
+  | 'categorias'
   | 'configuracion';
 
 // --- Notificaciones ---

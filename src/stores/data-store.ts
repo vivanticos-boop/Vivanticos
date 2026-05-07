@@ -201,6 +201,10 @@ interface CatalogoState {
   loadFromSupabase: () => Promise<void>;
   saveProductoToSupabase: (p: Producto, opciones?: any[]) => Promise<boolean>;
   deleteProductoFromSupabase: (id: string) => Promise<boolean>;
+  saveCategoriaToSupabase: (c: Categoria) => Promise<boolean>;
+  deleteCategoriaFromSupabase: (id: string) => Promise<boolean>;
+  saveSubcategoriaToSupabase: (s: Subcategoria) => Promise<boolean>;
+  deleteSubcategoriaFromSupabase: (id: string) => Promise<boolean>;
 }
 
 export const useCatalogoStore = create<CatalogoState>((set, get) => ({
@@ -463,6 +467,157 @@ export const useCatalogoStore = create<CatalogoState>((set, get) => ({
     } catch (error) {
       console.error('Error eliminando producto de Supabase:', error);
       get().deleteProducto(id);
+      return false;
+    }
+  },
+
+  // --- Guardar categoría en Supabase ---
+  saveCategoriaToSupabase: async (c: Categoria) => {
+    if (!isSupabaseConfigured() || !supabase) {
+      // Solo actualizar store local
+      const exists = get().categorias.find(cat => cat.id === c.id);
+      if (exists) {
+        get().updateCategoria(c);
+      } else {
+        get().addCategoria(c);
+      }
+      return true;
+    }
+
+    try {
+      const categoriaData = {
+        nombre: c.nombre,
+        icono: c.icono || null,
+        orden: c.orden,
+        activa: c.activa,
+      };
+
+      const existing = get().categorias.find(cat => cat.id === c.id);
+
+      if (existing) {
+        const { error } = await supabase
+          .from('categorias')
+          .update(categoriaData)
+          .eq('id', c.id);
+        if (error) throw error;
+        get().updateCategoria(c);
+      } else {
+        const { data, error } = await supabase
+          .from('categorias')
+          .insert(categoriaData)
+          .select()
+          .single();
+        if (error) throw error;
+        const newCategoria = { ...c, id: data.id };
+        get().addCategoria(newCategoria);
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error guardando categoría en Supabase:', error);
+      const exists = get().categorias.find(cat => cat.id === c.id);
+      if (exists) {
+        get().updateCategoria(c);
+      } else {
+        get().addCategoria(c);
+      }
+      return false;
+    }
+  },
+
+  // --- Eliminar categoría de Supabase ---
+  deleteCategoriaFromSupabase: async (id: string) => {
+    if (!isSupabaseConfigured() || !supabase) {
+      get().deleteCategoria(id);
+      return true;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('categorias')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      get().deleteCategoria(id);
+      return true;
+    } catch (error) {
+      console.error('Error eliminando categoría de Supabase:', error);
+      get().deleteCategoria(id);
+      return false;
+    }
+  },
+
+  // --- Guardar subcategoría en Supabase ---
+  saveSubcategoriaToSupabase: async (s: Subcategoria) => {
+    if (!isSupabaseConfigured() || !supabase) {
+      const exists = get().subcategorias.find(sub => sub.id === s.id);
+      if (exists) {
+        get().updateSubcategoria(s);
+      } else {
+        get().addSubcategoria(s);
+      }
+      return true;
+    }
+
+    try {
+      const subcategoriaData = {
+        nombre: s.nombre,
+        categoria_id: s.categoria_id,
+        orden: s.orden,
+        activa: s.activa,
+      };
+
+      const existing = get().subcategorias.find(sub => sub.id === s.id);
+
+      if (existing) {
+        const { error } = await supabase
+          .from('subcategorias')
+          .update(subcategoriaData)
+          .eq('id', s.id);
+        if (error) throw error;
+        get().updateSubcategoria(s);
+      } else {
+        const { data, error } = await supabase
+          .from('subcategorias')
+          .insert(subcategoriaData)
+          .select()
+          .single();
+        if (error) throw error;
+        const newSubcategoria = { ...s, id: data.id };
+        get().addSubcategoria(newSubcategoria);
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error guardando subcategoría en Supabase:', error);
+      const exists = get().subcategorias.find(sub => sub.id === s.id);
+      if (exists) {
+        get().updateSubcategoria(s);
+      } else {
+        get().addSubcategoria(s);
+      }
+      return false;
+    }
+  },
+
+  // --- Eliminar subcategoría de Supabase ---
+  deleteSubcategoriaFromSupabase: async (id: string) => {
+    if (!isSupabaseConfigured() || !supabase) {
+      get().deleteSubcategoria(id);
+      return true;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('subcategorias')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      get().deleteSubcategoria(id);
+      return true;
+    } catch (error) {
+      console.error('Error eliminando subcategoría de Supabase:', error);
+      get().deleteSubcategoria(id);
       return false;
     }
   },

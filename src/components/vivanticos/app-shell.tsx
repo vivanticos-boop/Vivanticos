@@ -16,6 +16,7 @@ import { EntregaFormView } from './entrega-form-view';
 import { UsuariosView } from './usuarios-view';
 import { UsuarioFormView } from './usuario-form-view';
 import { ConfiguracionView } from './configuracion-view';
+import { CategoriasView } from './categorias-view';
 
 export function AppShell() {
   const currentView = useAppStore(s => s.currentView);
@@ -35,6 +36,7 @@ export function AppShell() {
       case 'usuarios': return <UsuariosView />;
       case 'usuario-form': return <UsuarioFormView />;
       case 'configuracion': return <ConfiguracionView />;
+      case 'categorias': return <CategoriasView />;
       default: return <DashboardView />;
     }
   };

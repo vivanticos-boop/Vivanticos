@@ -11,6 +11,7 @@ import {
   Settings,
   X,
   Download,
+  FolderTree,
 } from 'lucide-react';
 import { usePwaInstall } from '@/hooks/use-pwa-install';
 import type { AppView } from '@/types';
@@ -22,6 +23,7 @@ interface SidebarProps {
 const NAV_ITEMS: { view: AppView; label: string; icon: React.ReactNode; roles?: string[] }[] = [
   { view: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
   { view: 'catalogo', label: 'Catálogo', icon: <Package size={20} /> },
+  { view: 'categorias', label: 'Categorías', icon: <FolderTree size={20} />, roles: ['admin', 'jefe'] },
   { view: 'cotizaciones', label: 'Cotizaciones', icon: <FileText size={20} /> },
   { view: 'entregas', label: 'Entregas', icon: <Truck size={20} /> },
   { view: 'usuarios', label: 'Usuarios', icon: <Users size={20} />, roles: ['admin', 'jefe'] },
@@ -73,6 +75,7 @@ export function Sidebar({ onClose }: SidebarProps) {
 
           const isActive = currentView === item.view ||
             (item.view === 'catalogo' && ['producto-detalle', 'producto-form'].includes(currentView)) ||
+            (item.view === 'categorias' && false) ||
             (item.view === 'cotizaciones' && ['cotizacion-form', 'cotizacion-detalle'].includes(currentView)) ||
             (item.view === 'entregas' && ['entrega-form'].includes(currentView)) ||
             (item.view === 'usuarios' && ['usuario-form'].includes(currentView));
