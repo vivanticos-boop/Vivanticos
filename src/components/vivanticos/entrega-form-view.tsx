@@ -113,6 +113,7 @@ export function EntregaFormView() {
 
   const addEntrega = useEntregasStore(s => s.addEntrega);
   const updateEntrega = useEntregasStore(s => s.updateEntrega);
+  const saveEntregaToSupabase = useEntregasStore(s => s.saveEntregaToSupabase);
   const getEntrega = useEntregasStore(s => s.getEntrega);
   const getCotizacion = useCotizacionesStore(s => s.getCotizacion);
 
@@ -250,6 +251,14 @@ export function EntregaFormView() {
     // Clear selections and navigate
     setSelectedEntregaId(null);
     setSelectedCotizacionId(null);
+
+    // Save to Supabase in background
+    saveEntregaToSupabase(entregaData).then(success => {
+      if (!success) {
+        console.warn('Entrega guardada localmente pero no en Supabase');
+      }
+    });
+
     navigateTo('entregas');
     setIsSubmitting(false);
   };

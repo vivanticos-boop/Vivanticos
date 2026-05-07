@@ -87,6 +87,8 @@ export interface Cotizacion {
   cliente_nombre: string;
   cliente_telefono: string;
   cliente_email?: string;
+  cliente_direccion?: string;  // NEW
+  cliente_id?: string;         // NEW - link to clientes table
   items: CotizacionItem[];
   subtotal: number;
   descuento_total: number;
@@ -159,6 +161,17 @@ export interface EntregaItem {
   configuracion?: string;
 }
 
+// --- Clientes ---
+export interface Cliente {
+  id: string;
+  nombre: string;
+  telefono: string;
+  email?: string;
+  direccion?: string;
+  creado_en: string;
+  actualizado_en: string;
+}
+
 // --- Vistas de navegación ---
 export type AppView =
   | 'dashboard'
@@ -173,6 +186,7 @@ export type AppView =
   | 'usuarios'
   | 'usuario-form'
   | 'categorias'
+  | 'clientes'
   | 'configuracion';
 
 // --- Notificaciones ---

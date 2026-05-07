@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useAppStore } from '@/stores/app-store';
 import { useCotizacionesStore } from '@/stores/cotizaciones-store';
 import { Card, CardContent } from '@/components/ui/card';
@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Plus, FileText, Phone, Mail, CalendarDays, ShoppingBag } from 'lucide-react';
+import { Search, Plus, FileText, Phone, Mail, CalendarDays, ShoppingBag, RefreshCw } from 'lucide-react';
 import { formatPrice, formatDateTime, getEstadoCotizacionColor } from '@/lib/utils';
 import type { EstadoCotizacion } from '@/types';
 
@@ -24,8 +24,15 @@ export function CotizacionesView() {
   const setSelectedCotizacionId = useAppStore(s => s.setSelectedCotizacionId);
 
   const cotizaciones = useCotizacionesStore(s => s.cotizaciones);
+  const loadFromSupabase = useCotizacionesStore(s => s.loadFromSupabase);
+  const isLoading = useCotizacionesStore(s => s.isLoading);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<string>('todas');
+
+  // Cargar datos de Supabase al montar
+  useEffect(() => {
+    loadFromSupabase();
+  }, [loadFromSupabase]);
 
   const filteredCotizaciones = useMemo(() => {
     let result = [...cotizaciones];
@@ -92,14 +99,26 @@ export function CotizacionesView() {
             </p>
           </div>
         </div>
-        <Button
-          className="bg-viv-sage hover:bg-viv-sage-dark text-white"
-          onClick={handleNuevaCotizacion}
-        >
-          <Plus size={16} className="mr-2" />
-          <span className="hidden sm:inline">Nueva Cotización</span>
-          <span className="sm:hidden">Nueva</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-9 w-9"
+            onClick={() => loadFromSupabase()}
+            disabled={isLoading}
+            title="Refrescar cotizaciones desde la nube"
+          >
+            <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
+          </Button>
+          <Button
+            className="bg-viv-sage hover:bg-viv-sage-dark text-white"
+            onClick={handleNuevaCotizacion}
+          >
+            <Plus size={16} className="mr-2" />
+            <span className="hidden sm:inline">Nueva Cotización</span>
+            <span className="sm:hidden">Nueva</span>
+          </Button>
+        </div>
       </div>
 
       {/* Search */}

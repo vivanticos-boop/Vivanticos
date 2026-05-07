@@ -1,9 +1,42 @@
 // ==========================================
 // STORE DE ENTREGAS - VIVANTICOS
+// Con integración Supabase + datos demo fallback
 // ==========================================
 
 import { create } from 'zustand';
 import type { Entrega, EstadoEntrega } from '@/types';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+
+// --- Helper: Check if ID is a valid UUID ---
+function isUUID(id: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+}
+
+// --- Persistencia localStorage ---
+const ENT_STORAGE_KEY = 'vivanticos-entregas';
+
+function loadEntFromStorage(): Entrega[] | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = localStorage.getItem(ENT_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return parsed.entregas || null;
+    }
+  } catch (e) {
+    console.error('Error loading entregas from localStorage:', e);
+  }
+  return null;
+}
+
+function saveEntToStorage(entregas: Entrega[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(ENT_STORAGE_KEY, JSON.stringify({ entregas, savedAt: new Date().toISOString() }));
+  } catch (e) {
+    console.error('Error saving entregas to localStorage:', e);
+  }
+}
 
 const today = new Date();
 const tomorrow = new Date(today);
@@ -114,6 +147,8 @@ const DEMO_ENTREGAS: Entrega[] = [
 
 interface EntregaState {
   entregas: Entrega[];
+  isLoaded: boolean;
+  isLoading: boolean;
   addEntrega: (e: Entrega) => void;
   updateEntrega: (e: Entrega) => void;
   deleteEntrega: (id: string) => void;
@@ -122,23 +157,42 @@ interface EntregaState {
   getEntregasByFecha: (fecha: string) => Entrega[];
   getEntregasByMes: (year: number, month: number) => Entrega[];
   getProximasEntregas: (dias: number) => Entrega[];
+  loadFromSupabase: () => Promise<void>;
+  saveEntregaToSupabase: (e: Entrega) => Promise<boolean>;
+  deleteEntregaFromSupabase: (id: string) => Promise<boolean>;
+  updateEstadoSupabase: (id: string, estado: EstadoEntrega) => Promise<boolean>;
 }
 
-export const useEntregasStore = create<EntregaState>((set, get) => ({
-  entregas: DEMO_ENTREGAS,
+export const useEntregasStore = create<EntregaState>((set, get) => {
+  const storedEnt = typeof window !== 'undefined' ? loadEntFromStorage() : null;
 
-  addEntrega: (e) => set((s) => ({ entregas: [e, ...s.entregas] })),
-  updateEntrega: (e) => set((s) => ({
-    entregas: s.entregas.map(ent => ent.id === e.id ? e : ent),
-  })),
-  deleteEntrega: (id) => set((s) => ({
-    entregas: s.entregas.filter(e => e.id !== id),
-  })),
-  updateEstado: (id, estado) => set((s) => ({
-    entregas: s.entregas.map(e =>
+  return {
+  entregas: storedEnt || DEMO_ENTREGAS,
+  isLoaded: false,
+  isLoading: false,
+
+  addEntrega: (e) => set((s) => {
+    const entregas = [e, ...s.entregas];
+    saveEntToStorage(entregas);
+    return { entregas };
+  }),
+  updateEntrega: (e) => set((s) => {
+    const entregas = s.entregas.map(ent => ent.id === e.id ? e : ent);
+    saveEntToStorage(entregas);
+    return { entregas };
+  }),
+  deleteEntrega: (id) => set((s) => {
+    const entregas = s.entregas.filter(e => e.id !== id);
+    saveEntToStorage(entregas);
+    return { entregas };
+  }),
+  updateEstado: (id, estado) => set((s) => {
+    const entregas = s.entregas.map(e =>
       e.id === id ? { ...e, estado, actualizado_en: new Date().toISOString() } : e
-    ),
-  })),
+    );
+    saveEntToStorage(entregas);
+    return { entregas };
+  }),
   getEntrega: (id) => get().entregas.find(e => e.id === id),
 
   getEntregasByFecha: (fecha) => get().entregas.filter(e =>
@@ -159,4 +213,210 @@ export const useEntregasStore = create<EntregaState>((set, get) => ({
       return fecha >= hoy && fecha <= limite && e.estado === 'pendiente';
     });
   },
-}));
+
+  // --- Cargar datos desde Supabase ---
+  loadFromSupabase: async () => {
+    if (!isSupabaseConfigured() || !supabase) {
+      console.log('Supabase no configurado, usando datos locales para entregas');
+      set({ isLoaded: true });
+      return;
+    }
+
+    if (get().isLoading) return;
+    set({ isLoading: true });
+
+    try {
+      const { data, error } = await supabase
+        .from('entregas')
+        .select('*')
+        .order('fecha_entrega', { ascending: true });
+
+      if (error) throw error;
+
+      const entregasFromSupabase: Entrega[] = (data || []).map((e: any) => ({
+        id: e.id,
+        cotizacion_id: e.cotizacion_id || undefined,
+        cliente_nombre: e.cliente_nombre || '',
+        cliente_telefono: e.cliente_telefono || '',
+        cliente_direccion: e.cliente_direccion || '',
+        fecha_entrega: e.fecha_entrega || new Date().toISOString().split('T')[0],
+        estado: e.estado || 'pendiente',
+        notas: e.notas || undefined,
+        items: e.items || [],
+        vendedor_id: e.vendedor_id || '',
+        creado_en: e.creado_en || new Date().toISOString(),
+        actualizado_en: e.actualizado_en || new Date().toISOString(),
+      }));
+
+      // If Supabase has data, use it; otherwise keep local/demo data
+      const finalEntregas = entregasFromSupabase.length > 0
+        ? entregasFromSupabase
+        : get().entregas;
+
+      set({
+        entregas: finalEntregas,
+        isLoaded: true,
+        isLoading: false,
+      });
+
+      saveEntToStorage(finalEntregas);
+      console.log(`Entregas cargadas: ${finalEntregas.length} (Supabase: ${entregasFromSupabase.length})`);
+    } catch (error) {
+      console.error('Error cargando entregas desde Supabase:', error);
+      set({ isLoaded: true, isLoading: false });
+    }
+  },
+
+  // --- Guardar entrega en Supabase ---
+  saveEntregaToSupabase: async (e: Entrega) => {
+    if (!isSupabaseConfigured() || !supabase) {
+      const exists = get().entregas.find(ent => ent.id === e.id);
+      if (exists) {
+        get().updateEntrega(e);
+      } else {
+        get().addEntrega(e);
+      }
+      return true;
+    }
+
+    try {
+      // Resolve vendedor_id
+      let resolvedVendedorId = e.vendedor_id;
+      if (!isUUID(resolvedVendedorId)) {
+        const { useUsuariosStore } = await import('@/stores/usuarios-store');
+        const usuarios = useUsuariosStore.getState().usuarios;
+        const matchingUser = usuarios.find(u => u.id === resolvedVendedorId || u.nombre === e.vendedor_id);
+        if (matchingUser && isUUID(matchingUser.id)) {
+          resolvedVendedorId = matchingUser.id;
+        } else {
+          const activeVendedor = usuarios.find(u => u.rol === 'vendedor' && u.activo && isUUID(u.id));
+          if (activeVendedor) resolvedVendedorId = activeVendedor.id;
+        }
+      }
+
+      const entregaData = {
+        cotizacion_id: (e.cotizacion_id && isUUID(e.cotizacion_id)) ? e.cotizacion_id : null,
+        cliente_nombre: e.cliente_nombre,
+        cliente_telefono: e.cliente_telefono,
+        cliente_direccion: e.cliente_direccion || '',
+        fecha_entrega: e.fecha_entrega,
+        estado: e.estado,
+        notas: e.notas || null,
+        vendedor_id: isUUID(resolvedVendedorId) ? resolvedVendedorId : null,
+        items: e.items || [],
+      };
+
+      if (isUUID(e.id)) {
+        // Check if exists in Supabase
+        const { data: checkData } = await supabase
+          .from('entregas')
+          .select('id')
+          .eq('id', e.id)
+          .maybeSingle();
+
+        if (checkData) {
+          // UPDATE
+          const { error } = await supabase
+            .from('entregas')
+            .update(entregaData)
+            .eq('id', e.id);
+          if (error) throw error;
+          get().updateEntrega(e);
+        } else {
+          // UUID locally but not in Supabase — insert without ID
+          const { data, error } = await supabase
+            .from('entregas')
+            .insert(entregaData)
+            .select()
+            .single();
+          if (error) throw error;
+          const oldId = e.id;
+          const newId = data.id;
+          set((s) => ({
+            entregas: s.entregas.map(ent => ent.id === oldId ? { ...e, id: newId } : ent),
+          }));
+          saveEntToStorage(get().entregas);
+        }
+      } else {
+        // Non-UUID ID — new entrega, insert without ID
+        const { data, error } = await supabase
+          .from('entregas')
+          .insert(entregaData)
+          .select()
+          .single();
+        if (error) throw error;
+
+        const oldId = e.id;
+        const newId = data.id;
+        set((s) => {
+          const exists = s.entregas.find(ent => ent.id === oldId);
+          if (exists) {
+            return { entregas: s.entregas.map(ent => ent.id === oldId ? { ...e, id: newId } : ent) };
+          } else {
+            return { entregas: [...s.entregas, { ...e, id: newId }] };
+          }
+        });
+        saveEntToStorage(get().entregas);
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error guardando entrega en Supabase:', error);
+      const exists = get().entregas.find(ent => ent.id === e.id);
+      if (!exists) {
+        get().addEntrega(e);
+      } else {
+        get().updateEntrega(e);
+      }
+      return false;
+    }
+  },
+
+  // --- Eliminar entrega de Supabase ---
+  deleteEntregaFromSupabase: async (id: string) => {
+    if (!isSupabaseConfigured() || !supabase) {
+      get().deleteEntrega(id);
+      return true;
+    }
+
+    try {
+      if (isUUID(id)) {
+        const { error } = await supabase
+          .from('entregas')
+          .delete()
+          .eq('id', id);
+        if (error) throw error;
+      }
+      get().deleteEntrega(id);
+      return true;
+    } catch (error) {
+      console.error('Error eliminando entrega de Supabase:', error);
+      get().deleteEntrega(id);
+      return false;
+    }
+  },
+
+  // --- Actualizar estado en Supabase ---
+  updateEstadoSupabase: async (id: string, estado: EstadoEntrega) => {
+    get().updateEstado(id, estado);
+
+    if (!isSupabaseConfigured() || !supabase) {
+      return true;
+    }
+
+    try {
+      if (isUUID(id)) {
+        const { error } = await supabase
+          .from('entregas')
+          .update({ estado, actualizado_en: new Date().toISOString() })
+          .eq('id', id);
+        if (error) throw error;
+      }
+      return true;
+    } catch (error) {
+      console.error('Error actualizando estado de entrega en Supabase:', error);
+      return false;
+    }
+  },
+  };
+});

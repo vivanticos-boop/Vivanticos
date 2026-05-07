@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useAppStore } from '@/stores/app-store';
 import { useCotizacionesStore } from '@/stores/cotizaciones-store';
 import { useCatalogoStore } from '@/stores/data-store';
+import { useClientesStore } from '@/stores/clientes-store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -55,10 +56,15 @@ export function CotizacionFormView() {
   const cotizaciones = useCotizacionesStore(s => s.cotizaciones);
   const addCotizacion = useCotizacionesStore(s => s.addCotizacion);
   const updateCotizacion = useCotizacionesStore(s => s.updateCotizacion);
+  const saveCotizacionToSupabase = useCotizacionesStore(s => s.saveCotizacionToSupabase);
 
   const productos = useCatalogoStore(s => s.productos);
   const getOpcionesByProducto = useCatalogoStore(s => s.getOpcionesByProducto);
   const getValoresByOpcion = useCatalogoStore(s => s.getValoresByOpcion);
+
+  const clientes = useClientesStore(s => s.clientes);
+  const searchClientes = useClientesStore(s => s.searchClientes);
+  const loadFromSupabaseClientes = useClientesStore(s => s.loadFromSupabase);
 
   const isEditing = !!selectedCotizacionId;
   const existingCotizacion = isEditing
@@ -69,7 +75,43 @@ export function CotizacionFormView() {
   const [clienteNombre, setClienteNombre] = useState(() => existingCotizacion?.cliente_nombre || '');
   const [clienteTelefono, setClienteTelefono] = useState(() => existingCotizacion?.cliente_telefono || '');
   const [clienteEmail, setClienteEmail] = useState(() => existingCotizacion?.cliente_email || '');
+  const [clienteDireccion, setClienteDireccion] = useState(() => existingCotizacion?.cliente_direccion || '');
   const [notas, setNotas] = useState(() => existingCotizacion?.notas || '');
+
+  // Client autocomplete state
+  const [showClientSuggestions, setShowClientSuggestions] = useState(false);
+  const clientSuggestionsRef = useRef<HTMLDivElement>(null);
+
+  // Load clientes from Supabase on mount
+  useEffect(() => {
+    loadFromSupabaseClientes();
+  }, [loadFromSupabaseClientes]);
+
+  // Close suggestions on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (clientSuggestionsRef.current && !clientSuggestionsRef.current.contains(e.target as Node)) {
+        setShowClientSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Filter matching clients for autocomplete
+  const matchingClientes = useMemo(() => {
+    if (!clienteNombre.trim() || clienteNombre.length < 2) return [];
+    return searchClientes(clienteNombre).slice(0, 5);
+  }, [clienteNombre, searchClientes]);
+
+  // Select a client from autocomplete
+  const handleSelectCliente = (cliente: typeof clientes[0]) => {
+    setClienteNombre(cliente.nombre);
+    setClienteTelefono(cliente.telefono);
+    setClienteEmail(cliente.email || '');
+    setClienteDireccion(cliente.direccion || '');
+    setShowClientSuggestions(false);
+  };
 
   // Items
   const [items, setItems] = useState<FormItem[]>(() =>
@@ -307,6 +349,7 @@ export function CotizacionFormView() {
       cliente_nombre: clienteNombre.trim(),
       cliente_telefono: clienteTelefono.trim(),
       cliente_email: clienteEmail.trim() || undefined,
+      cliente_direccion: clienteDireccion.trim() || undefined,
       items: items.map(item => ({
         id: item.id,
         cotizacion_id: isEditing ? existingCotizacion!.id : '',
@@ -338,6 +381,14 @@ export function CotizacionFormView() {
 
     setSelectedCotizacionId(cotizacionData.id);
     toast.success(isEditing ? 'Cotización actualizada' : 'Cotización creada');
+
+    // Save to Supabase in background (non-blocking)
+    saveCotizacionToSupabase(cotizacionData).then(success => {
+      if (!success) {
+        console.warn('Cotización guardada localmente pero no en Supabase');
+      }
+    });
+
     navigateTo('cotizacion-detalle');
     setIsSubmitting(false);
   };
@@ -393,16 +444,46 @@ export function CotizacionFormView() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 relative">
               <Label className="text-xs font-semibold uppercase tracking-wider">
                 Nombre *
               </Label>
               <Input
                 placeholder="Nombre del cliente"
                 value={clienteNombre}
-                onChange={e => setClienteNombre(e.target.value)}
+                onChange={e => {
+                  setClienteNombre(e.target.value);
+                  setShowClientSuggestions(true);
+                }}
+                onFocus={() => {
+                  if (clienteNombre.length >= 2) setShowClientSuggestions(true);
+                }}
                 className="h-10"
               />
+              {/* Client autocomplete suggestions */}
+              {showClientSuggestions && matchingClientes.length > 0 && (
+                <div
+                  ref={clientSuggestionsRef}
+                  className="absolute z-50 top-full left-0 right-0 mt-1 bg-background border border-border rounded-lg shadow-lg overflow-hidden"
+                >
+                  {matchingClientes.map(cliente => (
+                    <button
+                      key={cliente.id}
+                      type="button"
+                      className="w-full px-3 py-2 text-left hover:bg-viv-sage/10 transition-colors flex items-center gap-2"
+                      onClick={() => handleSelectCliente(cliente)}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{cliente.nombre}</p>
+                        <p className="text-[10px] text-muted-foreground">{cliente.telefono}{cliente.email ? ` · ${cliente.email}` : ''}</p>
+                      </div>
+                      {cliente.direccion && (
+                        <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">{cliente.direccion}</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase tracking-wider">
@@ -416,17 +497,30 @@ export function CotizacionFormView() {
               />
             </div>
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold uppercase tracking-wider">
-              Email
-            </Label>
-            <Input
-              type="email"
-              placeholder="correo@ejemplo.com"
-              value={clienteEmail}
-              onChange={e => setClienteEmail(e.target.value)}
-              className="h-10"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider">
+                Email
+              </Label>
+              <Input
+                type="email"
+                placeholder="correo@ejemplo.com"
+                value={clienteEmail}
+                onChange={e => setClienteEmail(e.target.value)}
+                className="h-10"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider">
+                Dirección
+              </Label>
+              <Input
+                placeholder="Cra 15 #82-34, Apt 502"
+                value={clienteDireccion}
+                onChange={e => setClienteDireccion(e.target.value)}
+                className="h-10"
+              />
+            </div>
           </div>
         </CardContent>
       </Card>

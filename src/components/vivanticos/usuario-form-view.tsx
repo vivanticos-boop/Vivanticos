@@ -54,6 +54,7 @@ export function UsuarioFormView() {
   const usuarios = useUsuariosStore(s => s.usuarios);
   const addUsuario = useUsuariosStore(s => s.addUsuario);
   const updateUsuario = useUsuariosStore(s => s.updateUsuario);
+  const saveUsuarioToSupabase = useUsuariosStore(s => s.saveUsuarioToSupabase);
 
   const isEditing = !!selectedUsuarioId;
   const existingUsuario = isEditing
@@ -219,12 +220,18 @@ export function UsuarioFormView() {
 
     if (isEditing) {
       updateUsuario(usuarioData);
-      toast.success('Usuario actualizado');
     } else {
       addUsuario(usuarioData);
-      toast.success('Usuario creado exitosamente');
     }
 
+    // Save to Supabase in background
+    saveUsuarioToSupabase(usuarioData).then(success => {
+      if (!success) {
+        console.warn('Usuario guardado localmente pero no en Supabase');
+      }
+    });
+
+    toast.success(isEditing ? 'Usuario actualizado' : 'Usuario creado exitosamente');
     navigateTo('usuarios');
     setIsSubmitting(false);
   };

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useAppStore } from '@/stores/app-store';
 import { useUsuariosStore } from '@/stores/usuarios-store';
 import { Card, CardContent } from '@/components/ui/card';
@@ -61,6 +61,13 @@ export function UsuariosView() {
   const usuarios = useUsuariosStore(s => s.usuarios);
   const toggleActivo = useUsuariosStore(s => s.toggleActivo);
   const deleteUsuario = useUsuariosStore(s => s.deleteUsuario);
+  const loadFromSupabase = useUsuariosStore(s => s.loadFromSupabase);
+  const isLoading = useUsuariosStore(s => s.isLoading);
+
+  // Cargar datos de Supabase al montar
+  useEffect(() => {
+    loadFromSupabase();
+  }, [loadFromSupabase]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterTab>('todos');

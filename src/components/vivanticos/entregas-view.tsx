@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useAppStore } from '@/stores/app-store';
 import { useEntregasStore } from '@/stores/entregas-store';
 import { Button } from '@/components/ui/button';
@@ -79,7 +79,15 @@ export function EntregasView() {
 
   const entregas = useEntregasStore(s => s.entregas);
   const updateEstado = useEntregasStore(s => s.updateEstado);
+  const updateEstadoSupabase = useEntregasStore(s => s.updateEstadoSupabase);
   const getEntrega = useEntregasStore(s => s.getEntrega);
+  const loadFromSupabase = useEntregasStore(s => s.loadFromSupabase);
+  const isLoading = useEntregasStore(s => s.isLoading);
+
+  // Cargar datos de Supabase al montar
+  useEffect(() => {
+    loadFromSupabase();
+  }, [loadFromSupabase]);
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -147,6 +155,7 @@ export function EntregasView() {
   // Handle estado change
   const handleEstadoChange = (entregaId: string, newEstado: EstadoEntrega) => {
     updateEstado(entregaId, newEstado);
+    updateEstadoSupabase(entregaId, newEstado);
     toast.success(`Estado actualizado a ${ESTADO_LABELS[newEstado]}`);
   };
 
