@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vivanticos-v1';
+const CACHE_NAME = 'vivanticos-v2';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
