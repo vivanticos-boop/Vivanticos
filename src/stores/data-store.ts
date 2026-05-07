@@ -4,7 +4,7 @@
 // ==========================================
 
 import { create } from 'zustand';
-import type { Categoria, Subcategoria, Producto, ProductoOpcion, ProductoOpcionValor } from '@/types';
+import type { Categoria, Subcategoria, Producto, ProductoOpcion, ProductoOpcionValor, TipoProducto, TipoOpcionInput } from '@/types';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
 // --- Datos demo (fallback cuando no hay Supabase) ---
@@ -38,7 +38,8 @@ const DEMO_PRODUCTOS: Producto[] = [
     medidas: '120x60cm, 130x70cm, 140x70cm',
     material: 'MDF 18mm con cantos de PVC, acabado lacado mate',
     garantia: '6 meses por defectos de fabricación',
-    precio_base: 450000, precio_descuento: 350000, entrega_inmediata: true,
+    precio_base: 450000, precio_descuento: 350000, tipo_producto: 'cuna', descuento_base: 100000,
+    entrega_inmediata: true,
     imagenes: [], activo: true,
     creado_en: '2025-01-15', actualizado_en: '2025-03-01',
   },
@@ -48,7 +49,8 @@ const DEMO_PRODUCTOS: Producto[] = [
     medidas: '120x60cm, 130x70cm, 140x70cm',
     material: 'MDF 15mm con detalles tallados, acabado lacado',
     garantia: '6 meses por defectos de fabricación',
-    precio_base: 520000, precio_descuento: 320000, entrega_inmediata: true,
+    precio_base: 520000, precio_descuento: 320000, tipo_producto: 'cuna', descuento_base: 200000,
+    entrega_inmediata: true,
     imagenes: [], activo: true,
     creado_en: '2025-01-20', actualizado_en: '2025-03-01',
   },
@@ -58,7 +60,8 @@ const DEMO_PRODUCTOS: Producto[] = [
     medidas: '120x60cm, 130x70cm',
     material: 'MDF 18mm, terminación suave al tacto',
     garantia: '6 meses por defectos de fabricación',
-    precio_base: 480000, precio_descuento: 380000, entrega_inmediata: false,
+    precio_base: 480000, precio_descuento: 0, tipo_producto: 'cuna', descuento_base: 100000,
+    entrega_inmediata: false,
     imagenes: [], activo: true,
     creado_en: '2025-02-01', actualizado_en: '2025-03-01',
   },
@@ -68,7 +71,8 @@ const DEMO_PRODUCTOS: Producto[] = [
     medidas: '80x160cm, 80x180cm, 90x190cm',
     material: 'MDF 18mm con serigrafía de animales',
     garantia: '6 meses por defectos de fabricación',
-    precio_base: 380000, precio_descuento: 0, entrega_inmediata: true,
+    precio_base: 380000, precio_descuento: 0, tipo_producto: 'cama', descuento_base: 0,
+    entrega_inmediata: true,
     imagenes: [], activo: true,
     creado_en: '2025-02-10', actualizado_en: '2025-03-01',
   },
@@ -78,7 +82,8 @@ const DEMO_PRODUCTOS: Producto[] = [
     medidas: '80x180cm, 90x190cm',
     material: 'MDF 18mm con melamina de alta calidad',
     garantia: '6 meses por defectos de fabricación',
-    precio_base: 420000, precio_descuento: 350000, entrega_inmediata: false,
+    precio_base: 420000, precio_descuento: 350000, tipo_producto: 'cama', descuento_base: 0,
+    entrega_inmediata: false,
     imagenes: [], activo: true,
     creado_en: '2025-02-15', actualizado_en: '2025-03-01',
   },
@@ -88,7 +93,8 @@ const DEMO_PRODUCTOS: Producto[] = [
     medidas: '80x50x90cm',
     material: 'MDF 18mm con 4 cajones, rieles silenciosos',
     garantia: '6 meses por defectos de fabricación',
-    precio_base: 380000, precio_descuento: 0, entrega_inmediata: true,
+    precio_base: 380000, precio_descuento: 0, tipo_producto: 'cambiador', descuento_base: 0,
+    entrega_inmediata: true,
     imagenes: [], activo: true,
     creado_en: '2025-02-20', actualizado_en: '2025-03-01',
   },
@@ -98,7 +104,8 @@ const DEMO_PRODUCTOS: Producto[] = [
     medidas: '1.20m ancho, 1.50m ancho, 1.80m ancho',
     material: 'MDF 18mm, bisagras de cierre suave',
     garantia: '6 meses por defectos de fabricación',
-    precio_base: 520000, precio_descuento: 0, entrega_inmediata: false,
+    precio_base: 520000, precio_descuento: 0, tipo_producto: 'ropero', descuento_base: 0,
+    entrega_inmediata: false,
     imagenes: [], activo: true,
     creado_en: '2025-03-01', actualizado_en: '2025-03-01',
   },
@@ -108,68 +115,73 @@ const DEMO_PRODUCTOS: Producto[] = [
     medidas: '100x50x75cm',
     material: 'MDF 15mm con estructura robusta, patas con niveladores',
     garantia: '6 meses por defectos de fabricación',
-    precio_base: 280000, precio_descuento: 220000, entrega_inmediata: true,
+    precio_base: 280000, precio_descuento: 220000, tipo_producto: 'escritorio', descuento_base: 0,
+    entrega_inmediata: true,
     imagenes: [], activo: true,
     creado_en: '2025-03-05', actualizado_en: '2025-03-01',
   },
 ];
 
+// Opciones con tipo select/checkbox
 const DEMO_OPCIONES: ProductoOpcion[] = [
-  { id: 'op1', producto_id: 'p1', tipo: 'medida', nombre: 'Medida', requerida: true, orden: 1 },
-  { id: 'op2', producto_id: 'p1', tipo: 'colchon', nombre: 'Colchón', requerida: false, orden: 2 },
-  { id: 'op3', producto_id: 'p1', tipo: 'lenceria', nombre: 'Lencería', requerida: false, orden: 3 },
-  { id: 'op4', producto_id: 'p2', tipo: 'medida', nombre: 'Medida', requerida: true, orden: 1 },
-  { id: 'op5', producto_id: 'p2', tipo: 'colchon', nombre: 'Colchón', requerida: false, orden: 2 },
-  { id: 'op6', producto_id: 'p2', tipo: 'lenceria', nombre: 'Lencería', requerida: false, orden: 3 },
-  { id: 'op7', producto_id: 'p3', tipo: 'medida', nombre: 'Medida', requerida: true, orden: 1 },
-  { id: 'op8', producto_id: 'p3', tipo: 'colchon', nombre: 'Colchón', requerida: false, orden: 2 },
-  { id: 'op9', producto_id: 'p3', tipo: 'lenceria', nombre: 'Lencería', requerida: false, orden: 3 },
-  { id: 'op10', producto_id: 'p4', tipo: 'medida', nombre: 'Medida', requerida: true, orden: 1 },
-  { id: 'op11', producto_id: 'p4', tipo: 'colchon', nombre: 'Colchón', requerida: false, orden: 2 },
-  { id: 'op12', producto_id: 'p6', tipo: 'medida', nombre: 'Acabado', requerida: true, orden: 1 },
-  { id: 'op13', producto_id: 'p7', tipo: 'medida', nombre: 'Medida', requerida: true, orden: 1 },
+  { id: 'op1', producto_id: 'p1', nombre: 'Medida', tipo: 'select', requerida: true, orden: 1 },
+  { id: 'op2', producto_id: 'p1', nombre: 'Colchón', tipo: 'checkbox', requerida: false, orden: 2 },
+  { id: 'op3', producto_id: 'p1', nombre: 'Lencería', tipo: 'select', requerida: false, orden: 3 },
+  { id: 'op4', producto_id: 'p2', nombre: 'Medida', tipo: 'select', requerida: true, orden: 1 },
+  { id: 'op5', producto_id: 'p2', nombre: 'Colchón', tipo: 'checkbox', requerida: false, orden: 2 },
+  { id: 'op6', producto_id: 'p2', nombre: 'Lencería', tipo: 'select', requerida: false, orden: 3 },
+  { id: 'op7', producto_id: 'p3', nombre: 'Medida', tipo: 'select', requerida: true, orden: 1 },
+  { id: 'op8', producto_id: 'p3', nombre: 'Colchón', tipo: 'checkbox', requerida: false, orden: 2 },
+  { id: 'op9', producto_id: 'p3', nombre: 'Lencería', tipo: 'select', requerida: false, orden: 3 },
+  { id: 'op10', producto_id: 'p4', nombre: 'Medida', tipo: 'select', requerida: true, orden: 1 },
+  { id: 'op11', producto_id: 'p4', nombre: 'Colchón', tipo: 'checkbox', requerida: false, orden: 2 },
+  { id: 'op12', producto_id: 'p6', nombre: 'Acabado', tipo: 'select', requerida: true, orden: 1 },
+  { id: 'op13', producto_id: 'p7', nombre: 'Medida', tipo: 'select', requerida: true, orden: 1 },
 ];
 
 const DEMO_OPCION_VALORES: ProductoOpcionValor[] = [
-  { id: 'ov1', opcion_id: 'op1', nombre: '120x60', precio_incremento: 0, activo: true },
-  { id: 'ov2', opcion_id: 'op1', nombre: '130x70', precio_incremento: 50000, activo: true },
-  { id: 'ov3', opcion_id: 'op1', nombre: '140x70', precio_incremento: 80000, activo: true },
-  { id: 'ov4', opcion_id: 'op2', nombre: 'Sin colchón', precio_incremento: 0, activo: true },
-  { id: 'ov5', opcion_id: 'op2', nombre: 'Colchón 120x60', precio_incremento: 120000, activo: true },
-  { id: 'ov6', opcion_id: 'op2', nombre: 'Colchón 130x70', precio_incremento: 140000, activo: true },
-  { id: 'ov7', opcion_id: 'op2', nombre: 'Colchón 140x70', precio_incremento: 160000, activo: true },
-  { id: 'ov8', opcion_id: 'op3', nombre: 'Sin lencería', precio_incremento: 0, activo: true },
-  { id: 'ov9', opcion_id: 'op3', nombre: 'Lencería Básica', precio_incremento: 85000, activo: true },
-  { id: 'ov10', opcion_id: 'op3', nombre: 'Lencería Premium', precio_incremento: 150000, activo: true },
-  { id: 'ov11', opcion_id: 'op4', nombre: '120x60', precio_incremento: 0, activo: true },
-  { id: 'ov12', opcion_id: 'op4', nombre: '130x70', precio_incremento: 50000, activo: true },
-  { id: 'ov13', opcion_id: 'op4', nombre: '140x70', precio_incremento: 80000, activo: true },
-  { id: 'ov14', opcion_id: 'op5', nombre: 'Sin colchón', precio_incremento: 0, activo: true },
-  { id: 'ov15', opcion_id: 'op5', nombre: 'Colchón 120x60', precio_incremento: 120000, activo: true },
-  { id: 'ov16', opcion_id: 'op5', nombre: 'Colchón 130x70', precio_incremento: 140000, activo: true },
-  { id: 'ov17', opcion_id: 'op5', nombre: 'Colchón 140x70', precio_incremento: 160000, activo: true },
-  { id: 'ov18', opcion_id: 'op6', nombre: 'Sin lencería', precio_incremento: 0, activo: true },
-  { id: 'ov19', opcion_id: 'op6', nombre: 'Lencería Básica', precio_incremento: 85000, activo: true },
-  { id: 'ov20', opcion_id: 'op6', nombre: 'Lencería Premium', precio_incremento: 150000, activo: true },
-  { id: 'ov21', opcion_id: 'op7', nombre: '120x60', precio_incremento: 0, activo: true },
-  { id: 'ov22', opcion_id: 'op7', nombre: '130x70', precio_incremento: 50000, activo: true },
-  { id: 'ov23', opcion_id: 'op8', nombre: 'Sin colchón', precio_incremento: 0, activo: true },
-  { id: 'ov24', opcion_id: 'op8', nombre: 'Colchón 120x60', precio_incremento: 120000, activo: true },
-  { id: 'ov25', opcion_id: 'op9', nombre: 'Sin lencería', precio_incremento: 0, activo: true },
-  { id: 'ov26', opcion_id: 'op9', nombre: 'Lencería Básica', precio_incremento: 85000, activo: true },
-  { id: 'ov27', opcion_id: 'op10', nombre: '80x160', precio_incremento: 0, activo: true },
-  { id: 'ov28', opcion_id: 'op10', nombre: '80x180', precio_incremento: 40000, activo: true },
-  { id: 'ov29', opcion_id: 'op10', nombre: '90x190', precio_incremento: 60000, activo: true },
-  { id: 'ov30', opcion_id: 'op11', nombre: 'Sin colchón', precio_incremento: 0, activo: true },
-  { id: 'ov31', opcion_id: 'op11', nombre: 'Colchón 80x160', precio_incremento: 150000, activo: true },
-  { id: 'ov32', opcion_id: 'op11', nombre: 'Colchón 80x180', precio_incremento: 170000, activo: true },
-  { id: 'ov33', opcion_id: 'op11', nombre: 'Colchón 90x190', precio_incremento: 190000, activo: true },
-  { id: 'ov34', opcion_id: 'op12', nombre: 'Blanco', precio_incremento: 0, activo: true },
-  { id: 'ov35', opcion_id: 'op12', nombre: 'Natural', precio_incremento: 20000, activo: true },
-  { id: 'ov36', opcion_id: 'op12', nombre: 'Gris', precio_incremento: 30000, activo: true },
-  { id: 'ov37', opcion_id: 'op13', nombre: '1.20m ancho', precio_incremento: 0, activo: true },
-  { id: 'ov38', opcion_id: 'op13', nombre: '1.50m ancho', precio_incremento: 80000, activo: true },
-  { id: 'ov39', opcion_id: 'op13', nombre: '1.80m ancho', precio_incremento: 150000, activo: true },
+  // Cuna Luna - Medida
+  { id: 'ov1', opcion_id: 'op1', nombre: '1.00m (120x60)', incremento_precio: 0, activo: true },
+  { id: 'ov2', opcion_id: 'op1', nombre: '1.20m (130x70)', incremento_precio: 200000, activo: true },
+  { id: 'ov3', opcion_id: 'op1', nombre: '1.40m (140x70)', incremento_precio: 400000, activo: true },
+  // Cuna Luna - Colchón (checkbox: un solo valor "Incluir")
+  { id: 'ov4', opcion_id: 'op2', nombre: 'Incluir colchón', incremento_precio: 120000, activo: true },
+  // Cuna Luna - Lencería
+  { id: 'ov5', opcion_id: 'op3', nombre: 'Sin lencería', incremento_precio: 0, activo: true },
+  { id: 'ov6', opcion_id: 'op3', nombre: 'Lencería Básica', incremento_precio: 85000, activo: true },
+  { id: 'ov7', opcion_id: 'op3', nombre: 'Lencería Premium', incremento_precio: 150000, activo: true },
+  // Cuna Estrella - Medida
+  { id: 'ov8', opcion_id: 'op4', nombre: '1.00m (120x60)', incremento_precio: 0, activo: true },
+  { id: 'ov9', opcion_id: 'op4', nombre: '1.20m (130x70)', incremento_precio: 200000, activo: true },
+  { id: 'ov10', opcion_id: 'op4', nombre: '1.40m (140x70)', incremento_precio: 400000, activo: true },
+  // Cuna Estrella - Colchón
+  { id: 'ov11', opcion_id: 'op5', nombre: 'Incluir colchón', incremento_precio: 120000, activo: true },
+  // Cuna Estrella - Lencería
+  { id: 'ov12', opcion_id: 'op6', nombre: 'Sin lencería', incremento_precio: 0, activo: true },
+  { id: 'ov13', opcion_id: 'op6', nombre: 'Lencería Básica', incremento_precio: 85000, activo: true },
+  { id: 'ov14', opcion_id: 'op6', nombre: 'Lencería Premium', incremento_precio: 150000, activo: true },
+  // Cuna Nube - Medida
+  { id: 'ov15', opcion_id: 'op7', nombre: '1.00m (120x60)', incremento_precio: 0, activo: true },
+  { id: 'ov16', opcion_id: 'op7', nombre: '1.20m (130x70)', incremento_precio: 200000, activo: true },
+  // Cuna Nube - Colchón
+  { id: 'ov17', opcion_id: 'op8', nombre: 'Incluir colchón', incremento_precio: 120000, activo: true },
+  // Cuna Nube - Lencería
+  { id: 'ov18', opcion_id: 'op9', nombre: 'Sin lencería', incremento_precio: 0, activo: true },
+  { id: 'ov19', opcion_id: 'op9', nombre: 'Lencería Básica', incremento_precio: 85000, activo: true },
+  // Cama Safari - Medida
+  { id: 'ov20', opcion_id: 'op10', nombre: '80x160', incremento_precio: 0, activo: true },
+  { id: 'ov21', opcion_id: 'op10', nombre: '80x180', incremento_precio: 40000, activo: true },
+  { id: 'ov22', opcion_id: 'op10', nombre: '90x190', incremento_precio: 60000, activo: true },
+  // Cama Safari - Colchón
+  { id: 'ov23', opcion_id: 'op11', nombre: 'Incluir colchón', incremento_precio: 150000, activo: true },
+  // Cómoda - Acabado
+  { id: 'ov24', opcion_id: 'op12', nombre: 'Blanco', incremento_precio: 0, activo: true },
+  { id: 'ov25', opcion_id: 'op12', nombre: 'Natural', incremento_precio: 20000, activo: true },
+  { id: 'ov26', opcion_id: 'op12', nombre: 'Gris', incremento_precio: 30000, activo: true },
+  // Ropero - Medida
+  { id: 'ov27', opcion_id: 'op13', nombre: '1.20m ancho', incremento_precio: 0, activo: true },
+  { id: 'ov28', opcion_id: 'op13', nombre: '1.50m ancho', incremento_precio: 80000, activo: true },
+  { id: 'ov29', opcion_id: 'op13', nombre: '1.80m ancho', incremento_precio: 150000, activo: true },
 ];
 
 interface CatalogoState {
@@ -337,6 +349,8 @@ export const useCatalogoStore = create<CatalogoState>((set, get) => ({
         garantia: p.garantia || '',
         precio_base: p.precio_base || 0,
         precio_descuento: p.precio_descuento || 0,
+        tipo_producto: (p.tipo_producto || 'otro') as TipoProducto,
+        descuento_base: p.descuento_base || 0,
         entrega_inmediata: p.entrega_inmediata ?? false,
         imagenes: p.imagenes || [],
         activo: p.activo ?? true,
@@ -347,8 +361,8 @@ export const useCatalogoStore = create<CatalogoState>((set, get) => ({
       const opciones: ProductoOpcion[] = (opData || []).map((o: any) => ({
         id: o.id,
         producto_id: o.producto_id,
-        tipo: o.tipo,
         nombre: o.nombre,
+        tipo: (o.tipo === 'select' || o.tipo === 'checkbox' ? o.tipo : 'select') as TipoOpcionInput,
         requerida: o.requerida ?? false,
         orden: o.orden || 0,
       }));
@@ -357,7 +371,7 @@ export const useCatalogoStore = create<CatalogoState>((set, get) => ({
         id: v.id,
         opcion_id: v.opcion_id,
         nombre: v.nombre,
-        precio_incremento: v.precio_incremento || 0,
+        incremento_precio: v.incremento_precio || v.precio_incremento || 0,
         activo: v.activo ?? true,
       }));
 
@@ -385,7 +399,6 @@ export const useCatalogoStore = create<CatalogoState>((set, get) => ({
   // --- Guardar producto en Supabase ---
   saveProductoToSupabase: async (p: Producto, opciones?: any[]) => {
     if (!isSupabaseConfigured() || !supabase) {
-      // Solo actualizar store local
       const exists = get().productos.find(prod => prod.id === p.id);
       if (exists) {
         get().updateProducto(p);
@@ -407,6 +420,8 @@ export const useCatalogoStore = create<CatalogoState>((set, get) => ({
         garantia: p.garantia,
         precio_base: p.precio_base,
         precio_descuento: p.precio_descuento,
+        tipo_producto: p.tipo_producto,
+        descuento_base: p.descuento_base,
         entrega_inmediata: p.entrega_inmediata,
         imagenes: p.imagenes,
         activo: p.activo,
@@ -415,7 +430,6 @@ export const useCatalogoStore = create<CatalogoState>((set, get) => ({
       const existing = get().productos.find(prod => prod.id === p.id);
 
       if (existing) {
-        // Update
         const { error } = await supabase
           .from('productos')
           .update(productoData)
@@ -423,22 +437,72 @@ export const useCatalogoStore = create<CatalogoState>((set, get) => ({
         if (error) throw error;
         get().updateProducto(p);
       } else {
-        // Insert
         const { data, error } = await supabase
           .from('productos')
           .insert(productoData)
           .select()
           .single();
         if (error) throw error;
-        // Use the Supabase-generated ID
         const newProducto = { ...p, id: data.id };
         get().addProducto(newProducto);
+      }
+
+      // Save opciones if provided
+      if (opciones && opciones.length > 0) {
+        const productoId = existing ? p.id : get().productos[get().productos.length - 1]?.id || p.id;
+
+        // Delete old opciones and their valores
+        const { data: oldOps } = await supabase
+          .from('producto_opciones')
+          .select('id')
+          .eq('producto_id', productoId);
+
+        if (oldOps && oldOps.length > 0) {
+          const oldOpIds = oldOps.map((o: any) => o.id);
+          await supabase.from('producto_opcion_valores').delete().in('opcion_id', oldOpIds);
+          await supabase.from('producto_opciones').delete().eq('producto_id', productoId);
+        }
+
+        // Insert new opciones
+        for (const op of opciones) {
+          const { data: newOp, error: opErr } = await supabase
+            .from('producto_opciones')
+            .insert({
+              producto_id: productoId,
+              nombre: op.nombre,
+              tipo: op.tipo,
+              requerida: op.requerida,
+              orden: op.orden,
+            })
+            .select()
+            .single();
+          if (opErr) {
+            console.error('Error saving opcion:', opErr);
+            continue;
+          }
+
+          // Insert valores for this opcion
+          if (op.valores && op.valores.length > 0) {
+            const valoresData = op.valores.map((v: any) => ({
+              opcion_id: newOp.id,
+              nombre: v.nombre,
+              incremento_precio: v.incremento_precio || v.precio_incremento || 0,
+              activo: v.activo ?? true,
+            }));
+            const { error: valErr } = await supabase
+              .from('producto_opcion_valores')
+              .insert(valoresData);
+            if (valErr) console.error('Error saving opcion valores:', valErr);
+          }
+        }
+
+        // Reload to get fresh data
+        await get().loadFromSupabase();
       }
 
       return true;
     } catch (error) {
       console.error('Error guardando producto en Supabase:', error);
-      // Fallback: actualizar solo localmente
       const exists = get().productos.find(prod => prod.id === p.id);
       if (exists) {
         get().updateProducto(p);
@@ -474,7 +538,6 @@ export const useCatalogoStore = create<CatalogoState>((set, get) => ({
   // --- Guardar categoría en Supabase ---
   saveCategoriaToSupabase: async (c: Categoria) => {
     if (!isSupabaseConfigured() || !supabase) {
-      // Solo actualizar store local
       const exists = get().categorias.find(cat => cat.id === c.id);
       if (exists) {
         get().updateCategoria(c);

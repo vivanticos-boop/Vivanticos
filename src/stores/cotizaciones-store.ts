@@ -1,5 +1,6 @@
 // ==========================================
 // STORE DE COTIZACIONES - VIVANTICOS
+// Con cálculos automáticos de configuración y descuentos
 // ==========================================
 
 import { create } from 'zustand';
@@ -14,18 +15,21 @@ const DEMO_COTIZACIONES: Cotizacion[] = [
     items: [
       {
         id: 'ci1', cotizacion_id: 'cot1', producto_id: 'p1', producto_nombre: 'Cuna Luna',
-        cantidad: 1, precio_unitario: 450000,
+        cantidad: 1, precio_unitario: 350000,
         opciones_seleccionadas: [
-          { opcion_id: 'op1', opcion_nombre: 'Medida', valor_id: 'ov1', valor_nombre: '120x60', precio_incremento: 0 },
-          { opcion_id: 'op2', opcion_nombre: 'Colchón', valor_id: 'ov5', valor_nombre: 'Colchón 120x60', precio_incremento: 120000 },
-          { opcion_id: 'op3', opcion_nombre: 'Lencería', valor_id: 'ov9', valor_nombre: 'Lencería Básica', precio_incremento: 85000 },
+          { opcion_id: 'op1', opcion_nombre: 'Medida', opcion_tipo: 'select', valor_id: 'ov1', valor_nombre: '1.00m (120x60)', incremento_precio: 0 },
+          { opcion_id: 'op2', opcion_nombre: 'Colchón', opcion_tipo: 'checkbox', valor_id: 'ov4', valor_nombre: 'Incluir colchón', incremento_precio: 120000 },
+          { opcion_id: 'op3', opcion_nombre: 'Lencería', opcion_tipo: 'select', valor_id: 'ov6', valor_nombre: 'Lencería Básica', incremento_precio: 85000 },
         ],
-        subtotal: 575000,
+        subtotal: 555000,
+        configuracion: { medida: '1.00m (120x60)', colchon: 'Incluir colchón', lenceria: 'Lencería Básica' },
+        precio_total_item: 455000,
+        descuento_aplicado: 100000,
       },
     ],
-    subtotal: 575000,
-    descuento_total: 80000,
-    total: 495000,
+    subtotal: 555000,
+    descuento_total: 100000,
+    total: 455000,
     estado: 'aprobada',
     vendedor_id: 'u3',
     notas: 'Cliente quiere color blanco mate',
@@ -39,25 +43,31 @@ const DEMO_COTIZACIONES: Cotizacion[] = [
     items: [
       {
         id: 'ci2', cotizacion_id: 'cot2', producto_id: 'p2', producto_nombre: 'Cuna Estrella',
-        cantidad: 1, precio_unitario: 520000,
+        cantidad: 1, precio_unitario: 320000,
         opciones_seleccionadas: [
-          { opcion_id: 'op4', opcion_nombre: 'Medida', valor_id: 'ov11', valor_nombre: '120x60', precio_incremento: 0 },
-          { opcion_id: 'op5', opcion_nombre: 'Colchón', valor_id: 'ov14', valor_nombre: 'Sin colchón', precio_incremento: 0 },
+          { opcion_id: 'op4', opcion_nombre: 'Medida', opcion_tipo: 'select', valor_id: 'ov8', valor_nombre: '1.00m (120x60)', incremento_precio: 0 },
+          { opcion_id: 'op5', opcion_nombre: 'Colchón', opcion_tipo: 'checkbox', valor_id: 'ov11', valor_nombre: 'Incluir colchón', incremento_precio: 120000 },
         ],
-        subtotal: 520000,
+        subtotal: 440000,
+        configuracion: { medida: '1.00m (120x60)', colchon: 'Incluir colchón' },
+        precio_total_item: 240000,
+        descuento_aplicado: 200000,
       },
       {
         id: 'ci3', cotizacion_id: 'cot2', producto_id: 'p6', producto_nombre: 'Cómoda Cambiador Daisy',
         cantidad: 1, precio_unitario: 380000,
         opciones_seleccionadas: [
-          { opcion_id: 'op12', opcion_nombre: 'Acabado', valor_id: 'ov34', valor_nombre: 'Blanco', precio_incremento: 0 },
+          { opcion_id: 'op12', opcion_nombre: 'Acabado', opcion_tipo: 'select', valor_id: 'ov24', valor_nombre: 'Blanco', incremento_precio: 0 },
         ],
         subtotal: 380000,
+        configuracion: { acabado: 'Blanco' },
+        precio_total_item: 380000,
+        descuento_aplicado: 0,
       },
     ],
-    subtotal: 900000,
+    subtotal: 820000,
     descuento_total: 200000,
-    total: 700000,
+    total: 620000,
     estado: 'borrador',
     vendedor_id: 'u3',
     creado_en: '2025-03-15T09:00:00Z',
@@ -73,10 +83,13 @@ const DEMO_COTIZACIONES: Cotizacion[] = [
         id: 'ci4', cotizacion_id: 'cot3', producto_id: 'p4', producto_nombre: 'Cama Infantil Safari',
         cantidad: 1, precio_unitario: 380000,
         opciones_seleccionadas: [
-          { opcion_id: 'op10', opcion_nombre: 'Medida', valor_id: 'ov27', valor_nombre: '80x160', precio_incremento: 0 },
-          { opcion_id: 'op11', opcion_nombre: 'Colchón', valor_id: 'ov31', valor_nombre: 'Colchón 80x160', precio_incremento: 150000 },
+          { opcion_id: 'op10', opcion_nombre: 'Medida', opcion_tipo: 'select', valor_id: 'ov20', valor_nombre: '80x160', incremento_precio: 0 },
+          { opcion_id: 'op11', opcion_nombre: 'Colchón', opcion_tipo: 'checkbox', valor_id: 'ov23', valor_nombre: 'Incluir colchón', incremento_precio: 150000 },
         ],
         subtotal: 530000,
+        configuracion: { medida: '80x160', colchon: 'Incluir colchón' },
+        precio_total_item: 530000,
+        descuento_aplicado: 0,
       },
     ],
     subtotal: 530000,
@@ -117,12 +130,8 @@ export const useCotizacionesStore = create<CotizacionState>((set, get) => ({
   getCotizacion: (id) => get().cotizaciones.find(c => c.id === id),
 
   calcularTotal: (items) => {
-    const subtotal = items.reduce((sum, item) => sum + item.subtotal * item.cantidad, 0);
-    // Los descuentos se calculan por item en la lógica de cada producto
-    const descuento = items.reduce((sum, item) => {
-      // Aquí se verificarían descuentos por tipo de producto
-      return sum;
-    }, 0);
+    const subtotal = items.reduce((sum, item) => sum + (item.precio_total_item || item.subtotal) * item.cantidad, 0);
+    const descuento = items.reduce((sum, item) => sum + (item.descuento_aplicado || 0) * item.cantidad, 0);
     return { subtotal, descuento, total: subtotal - descuento };
   },
 }));

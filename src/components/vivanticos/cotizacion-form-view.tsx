@@ -12,29 +12,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import {
-  ArrowLeft,
-  Plus,
-  Trash2,
-  Save,
-  Search,
-  Ruler,
-  Bed,
-  Layers,
-  Tag,
-  ShoppingCart,
-  X,
-  Package,
+  ArrowLeft, Plus, Trash2, Save, Search, ShoppingCart, X, Ruler, Bed, Layers, Tag, Check,
 } from 'lucide-react';
 import { formatPrice, generateId } from '@/lib/utils';
 import { toast } from 'sonner';
-import type { Cotizacion, CotizacionItem, ItemOpcionSeleccionada, ProductoOpcion, ProductoOpcionValor } from '@/types';
+import type { Cotizacion, CotizacionItem, ItemOpcionSeleccionada, ProductoOpcion, ProductoOpcionValor, TipoOpcionInput } from '@/types';
+import { TIPO_PRODUCTO_LABELS } from '@/types';
 
 // Local form item type
 interface FormItem {
@@ -42,16 +28,21 @@ interface FormItem {
   producto_id: string;
   producto_nombre: string;
   cantidad: number;
-  precio_unitario: number;
+  precio_unitario: number; // effective base price (precio_descuento if set, else precio_base)
   opciones_seleccionadas: ItemOpcionSeleccionada[];
-  subtotal: number;
+  subtotal: number; // precio_unitario + sum of incrementos
+  configuracion: Record<string, any>;
+  precio_total_item: number; // subtotal - descuento_aplicado
+  descuento_aplicado: number;
 }
 
-const OPCION_ICONS: Record<string, React.ReactNode> = {
-  medida: <Ruler size={14} />,
-  colchon: <Bed size={14} />,
-  lenceria: <Layers size={14} />,
-  extra: <Tag size={14} />,
+// Icon helper based on option name
+const getOpcionIcon = (nombre: string): React.ReactNode => {
+  const lower = nombre.toLowerCase();
+  if (lower.includes('medida')) return <Ruler size={14} />;
+  if (lower.includes('colch')) return <Bed size={14} />;
+  if (lower.includes('lencer') || lower.includes('ropa')) return <Layers size={14} />;
+  return <Tag size={14} />;
 };
 
 export function CotizacionFormView() {
@@ -68,21 +59,6 @@ export function CotizacionFormView() {
   const productos = useCatalogoStore(s => s.productos);
   const getOpcionesByProducto = useCatalogoStore(s => s.getOpcionesByProducto);
   const getValoresByOpcion = useCatalogoStore(s => s.getValoresByOpcion);
-  // Helper: calculate product price considering discount and option increments
-  const getProductoPrecioConOpciones = (productoId: string, optionSels: Record<string, string>): number => {
-    const prod = productos.find(p => p.id === productoId);
-    if (!prod) return 0;
-    const basePrice = prod.precio_descuento > 0 ? prod.precio_descuento : prod.precio_base;
-    const opciones = getOpcionesByProducto(productoId);
-    let increments = 0;
-    for (const [opId, valId] of Object.entries(optionSels)) {
-      const opcion = opciones.find(o => o.id === opId);
-      if (!opcion) continue;
-      const valor = getValoresByOpcion(opId).find(v => v.id === valId);
-      if (valor) increments += valor.precio_incremento;
-    }
-    return basePrice + increments;
-  };
 
   const isEditing = !!selectedCotizacionId;
   const existingCotizacion = isEditing
@@ -105,6 +81,9 @@ export function CotizacionFormView() {
       precio_unitario: item.precio_unitario,
       opciones_seleccionadas: item.opciones_seleccionadas,
       subtotal: item.subtotal,
+      configuracion: item.configuracion || {},
+      precio_total_item: item.precio_total_item || item.subtotal,
+      descuento_aplicado: item.descuento_aplicado || 0,
     })) || []
   );
 
@@ -112,7 +91,7 @@ export function CotizacionFormView() {
   const [productSearch, setProductSearch] = useState('');
   const [selectedProductoId, setSelectedProductoId] = useState<string>('');
   const [optionSelections, setOptionSelections] = useState<Record<string, string>>({});
-
+  const [checkboxSelections, setCheckboxSelections] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Filter products for search
@@ -136,57 +115,121 @@ export function CotizacionFormView() {
     [selectedProductoId, getOpcionesByProducto]
   );
 
-  // Calculate price for selected product with options
-  const calculatedPrice = useMemo(
-    () => selectedProductoId ? getProductoPrecioConOpciones(selectedProductoId, optionSelections) : 0,
-    [selectedProductoId, optionSelections, getProductoPrecioConOpciones]
-  );
+  // Calculate price for currently selected product
+  const calculateItemPrice = useMemo(() => {
+    if (!selectedProducto) return { base: 0, incrementos: 0, descuento: 0, total: 0 };
 
-  // Build the opciones_seleccionadas array from current selections
-  const buildOpcionesSeleccionadas = (productoId: string, selections: Record<string, string>): ItemOpcionSeleccionada[] => {
-    const opciones = getOpcionesByProducto(productoId);
-    return Object.entries(selections)
-      .map(([opId, valorId]) => {
-        const opcion = opciones.find(o => o.id === opId);
-        if (!opcion) return null;
-        const valores = getValoresByOpcion(opId);
-        const valor = valores.find(v => v.id === valorId);
-        if (!valor) return null;
-        return {
-          opcion_id: opcion.id,
-          opcion_nombre: opcion.nombre,
-          valor_id: valor.id,
-          valor_nombre: valor.nombre,
-          precio_incremento: valor.precio_incremento,
-        };
-      })
-      .filter((x): x is ItemOpcionSeleccionada => x !== null);
+    // Effective base price
+    const base = selectedProducto.precio_descuento > 0 && selectedProducto.precio_descuento < selectedProducto.precio_base
+      ? selectedProducto.precio_descuento
+      : selectedProducto.precio_base;
+
+    // Calculate incrementos from selected options
+    let incrementos = 0;
+    for (const opcion of selectedProductoOpciones) {
+      if (opcion.tipo === 'select') {
+        const selectedValId = optionSelections[opcion.id];
+        if (selectedValId) {
+          const valor = getValoresByOpcion(opcion.id).find(v => v.id === selectedValId);
+          if (valor) incrementos += valor.incremento_precio;
+        }
+      } else if (opcion.tipo === 'checkbox') {
+        if (checkboxSelections[opcion.id]) {
+          const valores = getValoresByOpcion(opcion.id).filter(v => v.activo);
+          if (valores.length > 0) incrementos += valores[0].incremento_precio;
+        }
+      }
+    }
+
+    // Descuento automático por tipo_producto
+    const descuento = selectedProducto.descuento_base || 0;
+
+    // Total
+    const total = base + incrementos - descuento;
+
+    return { base, incrementos, descuento, total };
+  }, [selectedProducto, selectedProductoOpciones, optionSelections, checkboxSelections, getValoresByOpcion]);
+
+  // Build opciones_seleccionadas for saving
+  const buildOpcionesSeleccionadas = (): ItemOpcionSeleccionada[] => {
+    const result: ItemOpcionSeleccionada[] = [];
+    for (const opcion of selectedProductoOpciones) {
+      if (opcion.tipo === 'select') {
+        const selectedValId = optionSelections[opcion.id];
+        if (selectedValId) {
+          const valor = getValoresByOpcion(opcion.id).find(v => v.id === selectedValId);
+          if (valor) {
+            result.push({
+              opcion_id: opcion.id,
+              opcion_nombre: opcion.nombre,
+              opcion_tipo: 'select',
+              valor_id: valor.id,
+              valor_nombre: valor.nombre,
+              incremento_precio: valor.incremento_precio,
+            });
+          }
+        }
+      } else if (opcion.tipo === 'checkbox') {
+        if (checkboxSelections[opcion.id]) {
+          const valores = getValoresByOpcion(opcion.id).filter(v => v.activo);
+          if (valores.length > 0) {
+            result.push({
+              opcion_id: opcion.id,
+              opcion_nombre: opcion.nombre,
+              opcion_tipo: 'checkbox',
+              valor_id: valores[0].id,
+              valor_nombre: valores[0].nombre,
+              incremento_precio: valores[0].incremento_precio,
+            });
+          }
+        }
+      }
+    }
+    return result;
+  };
+
+  // Build configuracion JSON
+  const buildConfiguracion = (): Record<string, any> => {
+    const config: Record<string, any> = {};
+    for (const opcion of selectedProductoOpciones) {
+      if (opcion.tipo === 'select') {
+        const selectedValId = optionSelections[opcion.id];
+        if (selectedValId) {
+          const valor = getValoresByOpcion(opcion.id).find(v => v.id === selectedValId);
+          if (valor) config[opcion.nombre] = valor.nombre;
+        }
+      } else if (opcion.tipo === 'checkbox') {
+        config[opcion.nombre] = checkboxSelections[opcion.id] ? 'Incluido' : 'No incluido';
+      }
+    }
+    return config;
   };
 
   // Totals
   const totals = useMemo(() => {
-    const subtotal = items.reduce((sum, item) => sum + item.subtotal * item.cantidad, 0);
-    // Calculate discount: difference between base price and discounted price per item
-    const descuento = items.reduce((sum, item) => {
-      const producto = productos.find(p => p.id === item.producto_id);
-      if (!producto || producto.precio_descuento <= 0) return sum;
-      // Descuento por producto = diferencia entre precio base y precio descuento
-      const diff = producto.precio_base - producto.precio_descuento;
-      return sum + (diff * item.cantidad);
-    }, 0);
-    return { subtotal, descuento, total: subtotal - descuento };
-  }, [items, productos]);
+    const subtotal = items.reduce((sum, item) => sum + item.precio_total_item * item.cantidad, 0);
+    const descuento = items.reduce((sum, item) => sum + item.descuento_aplicado * item.cantidad, 0);
+    const baseTotal = items.reduce((sum, item) => sum + item.precio_unitario * item.cantidad, 0);
+    const incrementos = items.reduce((sum, item) => sum + (item.subtotal - item.precio_unitario) * item.cantidad, 0);
+    return { baseTotal, incrementos, descuento, subtotal, total: subtotal };
+  }, [items]);
 
   // Handle selecting a product
   const handleSelectProduct = (productoId: string) => {
     setSelectedProductoId(productoId);
     setOptionSelections({});
+    setCheckboxSelections({});
     setProductSearch('');
   };
 
-  // Handle option value change
+  // Handle option value change for select type
   const handleOptionChange = (opcionId: string, valorId: string) => {
     setOptionSelections(prev => ({ ...prev, [opcionId]: valorId }));
+  };
+
+  // Handle checkbox toggle
+  const handleCheckboxToggle = (opcionId: string) => {
+    setCheckboxSelections(prev => ({ ...prev, [opcionId]: !prev[opcionId] }));
   };
 
   // Add item to list
@@ -197,31 +240,34 @@ export function CotizacionFormView() {
     }
 
     // Check required options
-    const requiredOpciones = selectedProductoOpciones.filter(o => o.requerida);
-    for (const op of requiredOpciones) {
-      if (!optionSelections[op.id]) {
+    for (const op of selectedProductoOpciones) {
+      if (op.requerida && op.tipo === 'select' && !optionSelections[op.id]) {
         toast.error(`Selecciona una opción para ${op.nombre}`);
         return;
       }
     }
 
-    const opcionesSeleccionadas = buildOpcionesSeleccionadas(selectedProducto.id, optionSelections);
-    const precio = getProductoPrecioConOpciones(selectedProducto.id, optionSelections);
-    // Nota: precio ya incluye precio_descuento si aplica
+    const { base, incrementos, descuento, total } = calculateItemPrice;
+    const opcionesSeleccionadas = buildOpcionesSeleccionadas();
+    const configuracion = buildConfiguracion();
 
     const newItem: FormItem = {
       id: generateId(),
       producto_id: selectedProducto.id,
       producto_nombre: selectedProducto.nombre,
       cantidad: 1,
-      precio_unitario: precio,
+      precio_unitario: base,
       opciones_seleccionadas: opcionesSeleccionadas,
-      subtotal: precio,
+      subtotal: base + incrementos,
+      configuracion,
+      precio_total_item: total,
+      descuento_aplicado: descuento,
     };
 
     setItems([...items, newItem]);
     setSelectedProductoId('');
     setOptionSelections({});
+    setCheckboxSelections({});
     toast.success(`${selectedProducto.nombre} agregado`);
   };
 
@@ -270,6 +316,9 @@ export function CotizacionFormView() {
         precio_unitario: item.precio_unitario,
         opciones_seleccionadas: item.opciones_seleccionadas,
         subtotal: item.subtotal,
+        configuracion: item.configuracion,
+        precio_total_item: item.precio_total_item,
+        descuento_aplicado: item.descuento_aplicado,
       })),
       subtotal: totals.subtotal,
       descuento_total: totals.descuento,
@@ -436,9 +485,20 @@ export function CotizacionFormView() {
                       </p>
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <p className="text-sm font-bold text-viv-sage-dark">
-                        {formatPrice(producto.precio_base)}
-                      </p>
+                      {producto.precio_descuento > 0 && producto.precio_descuento < producto.precio_base ? (
+                        <>
+                          <p className="text-[10px] text-muted-foreground line-through">
+                            {formatPrice(producto.precio_base)}
+                          </p>
+                          <p className="text-sm font-bold text-viv-sage-dark">
+                            {formatPrice(producto.precio_descuento)}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-sm font-bold text-viv-sage-dark">
+                          {formatPrice(producto.precio_base)}
+                        </p>
+                      )}
                     </div>
                   </button>
                 ))
@@ -449,13 +509,20 @@ export function CotizacionFormView() {
           {/* Selected product with options */}
           {selectedProducto && (
             <div className="rounded-xl border border-viv-sage/20 bg-viv-sage/5 p-4 space-y-4">
+              {/* Product name with deselect */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <ShoppingCart size={16} className="text-viv-sage-dark" />
                   <span className="text-sm font-bold">{selectedProducto.nombre}</span>
-                  <Badge variant="outline" className="text-[10px] border-viv-sage/30 text-viv-sage-dark">
-                    {formatPrice(selectedProducto.precio_base)}
-                  </Badge>
+                  {selectedProducto.precio_descuento > 0 && selectedProducto.precio_descuento < selectedProducto.precio_base ? (
+                    <Badge className="bg-viv-rose/15 text-viv-rose-dark border-0 text-[10px]">
+                      Oferta
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-[10px] border-viv-sage/30 text-viv-sage-dark">
+                      {formatPrice(selectedProducto.precio_base)}
+                    </Badge>
+                  )}
                 </div>
                 <Button
                   variant="ghost"
@@ -464,21 +531,74 @@ export function CotizacionFormView() {
                   onClick={() => {
                     setSelectedProductoId('');
                     setOptionSelections({});
+                    setCheckboxSelections({});
                   }}
                 >
                   <X size={14} />
                 </Button>
               </div>
 
-              {/* Options */}
+              {/* Options Section */}
               {selectedProductoOpciones.length > 0 && (
                 <div className="space-y-3">
+                  <p
+                    className="text-xs font-bold uppercase tracking-wider text-muted-foreground"
+                    style={{ fontFamily: 'var(--font-league-spartan)' }}
+                  >
+                    Configuración
+                  </p>
                   {selectedProductoOpciones.map(opcion => {
                     const valores = getValoresByOpcion(opcion.id).filter(v => v.activo);
+
+                    if (opcion.tipo === 'checkbox') {
+                      // Checkbox option: toggle switch
+                      const isChecked = checkboxSelections[opcion.id] || false;
+                      const checkboxValor = valores.length > 0 ? valores[0] : null;
+                      return (
+                        <div
+                          key={opcion.id}
+                          className="flex items-center justify-between rounded-xl bg-muted/30 p-3"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isChecked ? 'bg-viv-sage/15' : 'bg-muted'}`}>
+                              {getOpcionIcon(opcion.nombre)}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">{opcion.nombre}</p>
+                              {checkboxValor && checkboxValor.incremento_precio > 0 && (
+                                <p className="text-[10px] text-muted-foreground">
+                                                  +{formatPrice(checkboxValor.incremento_precio)}
+                                </p>
+                              )}
+                            </div>
+                            {opcion.requerida && (
+                              <span className="text-viv-rose text-[10px] font-semibold">*req</span>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => handleCheckboxToggle(opcion.id)}
+                            className={`relative w-12 h-7 rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-viv-sage ${
+                              isChecked ? 'bg-viv-sage' : 'bg-muted-foreground/30'
+                            }`}
+                            role="switch"
+                            aria-checked={isChecked}
+                            aria-label={opcion.nombre}
+                          >
+                            <span
+                              className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                                isChecked ? 'translate-x-5' : 'translate-x-0'
+                              }`}
+                            />
+                          </button>
+                        </div>
+                      );
+                    }
+
+                    // Select option: dropdown
                     return (
                       <div key={opcion.id} className="space-y-1.5">
                         <Label className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5">
-                          {OPCION_ICONS[opcion.tipo] || <Tag size={14} />}
+                          {getOpcionIcon(opcion.nombre)}
                           {opcion.nombre}
                           {opcion.requerida && (
                             <span className="text-viv-rose text-[10px]">*requerido</span>
@@ -495,9 +615,9 @@ export function CotizacionFormView() {
                             {valores.map(valor => (
                               <SelectItem key={valor.id} value={valor.id}>
                                 {valor.nombre}
-                                {valor.precio_incremento > 0 && (
+                                {valor.incremento_precio > 0 && (
                                   <span className="ml-2 text-viv-sage-dark font-semibold">
-                                    +{formatPrice(valor.precio_incremento)}
+                                    +{formatPrice(valor.incremento_precio)}
                                   </span>
                                 )}
                               </SelectItem>
@@ -510,25 +630,61 @@ export function CotizacionFormView() {
                 </div>
               )}
 
-              {/* Calculated price + Add button */}
-              <div className="flex items-center justify-between pt-2 border-t border-viv-sage/15">
-                <div>
-                  <p className="text-xs text-muted-foreground">Precio calculado</p>
-                  <p
-                    className="text-xl font-bold text-viv-sage-dark"
+              {/* Price Breakdown */}
+              <div className="rounded-xl bg-background border border-border/50 p-3 space-y-2">
+                <p
+                  className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2"
+                  style={{ fontFamily: 'var(--font-league-spartan)' }}
+                >
+                  Desglose de precio
+                </p>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Precio base</span>
+                  <span className="text-xs font-semibold">{formatPrice(calculateItemPrice.base)}</span>
+                </div>
+                {calculateItemPrice.incrementos > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Incrementos</span>
+                    <span className="text-xs font-semibold text-viv-sage-dark">
+                      +{formatPrice(calculateItemPrice.incrementos)}
+                    </span>
+                  </div>
+                )}
+                {calculateItemPrice.descuento > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">
+                      Descuento ({TIPO_PRODUCTO_LABELS[selectedProducto.tipo_producto] || selectedProducto.tipo_producto})
+                    </span>
+                    <span className="text-xs font-semibold text-viv-rose-dark">
+                      -{formatPrice(calculateItemPrice.descuento)}
+                    </span>
+                  </div>
+                )}
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <span
+                    className="text-sm font-bold"
                     style={{ fontFamily: 'var(--font-league-spartan)' }}
                   >
-                    {formatPrice(calculatedPrice)}
-                  </p>
+                    Precio final
+                  </span>
+                  <span
+                    className="text-lg font-bold text-viv-sage-dark"
+                    style={{ fontFamily: 'var(--font-league-spartan)' }}
+                  >
+                    {formatPrice(calculateItemPrice.total)}
+                  </span>
                 </div>
-                <Button
-                  className="bg-viv-sage hover:bg-viv-sage-dark text-white"
-                  onClick={handleAddItem}
-                >
-                  <Plus size={16} className="mr-1.5" />
-                  Agregar
-                </Button>
               </div>
+
+              {/* Add button */}
+              <Button
+                className="w-full bg-viv-sage hover:bg-viv-sage-dark text-white"
+                onClick={handleAddItem}
+              >
+                <Plus size={16} className="mr-1.5" />
+                Agregar al presupuesto
+              </Button>
             </div>
           )}
         </CardContent>
@@ -551,6 +707,7 @@ export function CotizacionFormView() {
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {items.map((item, index) => {
                 const producto = productos.find(p => p.id === item.producto_id);
+                const itemIncrementos = item.subtotal - item.precio_unitario;
                 return (
                   <div
                     key={item.id}
@@ -577,7 +734,7 @@ export function CotizacionFormView() {
                       </Button>
                     </div>
 
-                    {/* Selected options */}
+                    {/* Selected options badges */}
                     {item.opciones_seleccionadas.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 pl-5">
                         {item.opciones_seleccionadas.map((op, i) => (
@@ -587,9 +744,9 @@ export function CotizacionFormView() {
                             className="text-[10px] border-viv-beige"
                           >
                             {op.opcion_nombre}: {op.valor_nombre}
-                            {op.precio_incremento > 0 && (
+                            {op.incremento_precio > 0 && (
                               <span className="ml-1 text-viv-sage-dark font-semibold">
-                                +{formatPrice(op.precio_incremento)}
+                                +{formatPrice(op.incremento_precio)}
                               </span>
                             )}
                           </Badge>
@@ -597,8 +754,32 @@ export function CotizacionFormView() {
                       </div>
                     )}
 
-                    {/* Quantity + price */}
-                    <div className="flex items-center justify-between pl-5">
+                    {/* Price breakdown per item */}
+                    <div className="pl-5 space-y-1">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-muted-foreground">Precio base</span>
+                        <span className="font-medium">{formatPrice(item.precio_unitario)}</span>
+                      </div>
+                      {itemIncrementos > 0 && (
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-muted-foreground">Incrementos</span>
+                          <span className="font-medium text-viv-sage-dark">+{formatPrice(itemIncrementos)}</span>
+                        </div>
+                      )}
+                      {item.descuento_aplicado > 0 && (
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-muted-foreground">Descuento</span>
+                          <span className="font-medium text-viv-rose-dark">-{formatPrice(item.descuento_aplicado)}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-muted-foreground">Precio unitario</span>
+                        <span className="font-semibold text-viv-sage-dark">{formatPrice(item.precio_total_item)}</span>
+                      </div>
+                    </div>
+
+                    {/* Quantity + total */}
+                    <div className="flex items-center justify-between pl-5 pt-1 border-t border-border/30">
                       <div className="flex items-center gap-2">
                         <Label className="text-xs text-muted-foreground">Cant:</Label>
                         <div className="flex items-center border rounded-lg overflow-hidden">
@@ -621,14 +802,11 @@ export function CotizacionFormView() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-xs text-muted-foreground">
-                          {formatPrice(item.precio_unitario)} c/u
-                        </p>
                         <p
                           className="text-sm font-bold text-viv-sage-dark"
                           style={{ fontFamily: 'var(--font-league-spartan)' }}
                         >
-                          {formatPrice(item.subtotal * item.cantidad)}
+                          {formatPrice(item.precio_total_item * item.cantidad)}
                         </p>
                       </div>
                     </div>
@@ -651,12 +829,20 @@ export function CotizacionFormView() {
               Resumen
             </h3>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Subtotal</span>
-              <span className="text-sm font-semibold">{formatPrice(totals.subtotal)}</span>
+              <span className="text-sm text-muted-foreground">Precio base</span>
+              <span className="text-sm font-semibold">{formatPrice(totals.baseTotal)}</span>
             </div>
+            {totals.incrementos > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Incrementos</span>
+                <span className="text-sm font-semibold text-viv-sage-dark">
+                  +{formatPrice(totals.incrementos)}
+                </span>
+              </div>
+            )}
             {totals.descuento > 0 && (
               <div className="flex items-center justify-between">
-                <span className="text-sm text-viv-rose-dark">Descuento</span>
+                <span className="text-sm text-viv-rose-dark">Descuentos</span>
                 <span className="text-sm font-semibold text-viv-rose-dark">
                   -{formatPrice(totals.descuento)}
                 </span>

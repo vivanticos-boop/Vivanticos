@@ -22,6 +22,21 @@ export interface Subcategoria {
   activa: boolean;
 }
 
+// --- Tipos de producto ---
+export type TipoProducto = 'cuna' | 'colchon' | 'lenceria' | 'cambiador' | 'cama' | 'ropero' | 'escritorio' | 'accesorio' | 'otro';
+
+export const TIPO_PRODUCTO_LABELS: Record<TipoProducto, string> = {
+  cuna: 'Cuna',
+  colchon: 'Colchón',
+  lenceria: 'Lencería',
+  cambiador: 'Cambiador',
+  cama: 'Cama',
+  ropero: 'Ropero',
+  escritorio: 'Escritorio',
+  accesorio: 'Accesorio',
+  otro: 'Otro',
+};
+
 // --- Productos ---
 export interface Producto {
   id: string;
@@ -33,6 +48,8 @@ export interface Producto {
   garantia: string; // Solo visible dentro de la app
   precio_base: number;
   precio_descuento: number; // 0 = sin descuento
+  tipo_producto: TipoProducto; // Tipo de producto para descuentos automáticos
+  descuento_base: number; // Descuento automático por tipo de producto en cotizaciones
   categoria_id: string;
   subcategoria_id?: string;
   entrega_inmediata: boolean;
@@ -43,13 +60,13 @@ export interface Producto {
 }
 
 // --- Opciones de producto ---
-export type TipoOpcion = 'medida' | 'colchon' | 'lenceria' | 'extra';
+export type TipoOpcionInput = 'select' | 'checkbox';
 
 export interface ProductoOpcion {
   id: string;
   producto_id: string;
-  tipo: TipoOpcion;
-  nombre: string;
+  nombre: string; // ej: Medida, Colchón, Lencería
+  tipo: TipoOpcionInput; // select = dropdown, checkbox = toggle
   requerida: boolean;
   orden: number;
 }
@@ -58,7 +75,7 @@ export interface ProductoOpcionValor {
   id: string;
   opcion_id: string;
   nombre: string;
-  precio_incremento: number;
+  incremento_precio: number; // Renamed from precio_incremento
   activo: boolean;
 }
 
@@ -87,17 +104,21 @@ export interface CotizacionItem {
   producto_id: string;
   producto_nombre: string;
   cantidad: number;
-  precio_unitario: number;
+  precio_unitario: number; // precio_base efectivo (con descuento si aplica)
   opciones_seleccionadas: ItemOpcionSeleccionada[];
-  subtotal: number;
+  subtotal: number; // precio_unitario + incrementos (antes de descuento tipo)
+  configuracion: Record<string, any>; // Snapshot completo de la configuración
+  precio_total_item: number; // precio final = precio_base + incrementos - descuento_aplicado
+  descuento_aplicado: number; // Descuento automático por tipo_producto
 }
 
 export interface ItemOpcionSeleccionada {
   opcion_id: string;
   opcion_nombre: string;
+  opcion_tipo: TipoOpcionInput; // select o checkbox
   valor_id: string;
   valor_nombre: string;
-  precio_incremento: number;
+  incremento_precio: number; // Renamed from precio_incremento
 }
 
 // --- Usuarios ---

@@ -14,12 +14,13 @@ import { Separator } from '@/components/ui/separator';
 import { ArrowLeft, Plus, Trash2, ImagePlus, Ruler, Bed, Layers, Tag, GripVertical, X, Save, Package, Truck, Loader2 } from 'lucide-react';
 import { formatPrice, generateId } from '@/lib/utils';
 import { toast } from 'sonner';
-import type { Producto, TipoOpcion } from '@/types';
+import type { Producto, TipoOpcionInput, TipoProducto } from '@/types';
+import { TIPO_PRODUCTO_LABELS } from '@/types';
 
 // Local type for managing option + values together in the form
 interface FormOpcion {
   id: string;
-  tipo: TipoOpcion;
+  tipo: TipoOpcionInput;
   nombre: string;
   requerida: boolean;
   orden: number;
@@ -29,29 +30,25 @@ interface FormOpcion {
 interface FormOpcionValor {
   id: string;
   nombre: string;
-  precio_incremento: number;
+  incremento_precio: number;
   activo: boolean;
 }
 
-const OPCION_TIPO_LABELS: Record<TipoOpcion, string> = {
-  medida: 'Medida',
-  colchon: 'Colchón',
-  lenceria: 'Lencería',
-  extra: 'Extra',
+const OPCION_TIPO_LABELS: Record<TipoOpcionInput, string> = {
+  select: 'Selección',
+  checkbox: 'Casilla',
 };
 
-const OPCION_TIPO_ICONS: Record<TipoOpcion, React.ReactNode> = {
-  medida: <Ruler size={14} />,
-  colchon: <Bed size={14} />,
-  lenceria: <Layers size={14} />,
-  extra: <Tag size={14} />,
+const OPCION_TIPO_ICONS: Record<TipoOpcionInput, React.ReactNode> = {
+  select: <Tag size={14} />,
+  checkbox: <Tag size={14} />,
 };
 
 // Helper to compute initial form state from an existing product
 function getInitialFormState(
   existingProducto: Producto | null,
-  opciones: { id: string; producto_id: string; tipo: TipoOpcion; nombre: string; requerida: boolean; orden: number }[],
-  opcionValores: { id: string; opcion_id: string; nombre: string; precio_incremento: number; activo: boolean }[]
+  opciones: { id: string; producto_id: string; tipo: TipoOpcionInput; nombre: string; requerida: boolean; orden: number }[],
+  opcionValores: { id: string; opcion_id: string; nombre: string; incremento_precio: number; activo: boolean }[]
 ) {
   if (!existingProducto) {
     return {
@@ -65,6 +62,8 @@ function getInitialFormState(
       garantia: '',
       precioBase: '',
       precioDescuento: '',
+      tipoProducto: 'otro' as TipoProducto,
+      descuentoBase: '',
       entregaInmediata: false,
       imagenes: [] as string[],
       activo: true,
@@ -84,7 +83,7 @@ function getInitialFormState(
       valores: vals.map(v => ({
         id: v.id,
         nombre: v.nombre,
-        precio_incremento: v.precio_incremento,
+        incremento_precio: v.incremento_precio,
         activo: v.activo,
       })),
     };
@@ -101,6 +100,8 @@ function getInitialFormState(
     garantia: existingProducto.garantia || '',
     precioBase: String(existingProducto.precio_base),
     precioDescuento: existingProducto.precio_descuento > 0 ? String(existingProducto.precio_descuento) : '',
+    tipoProducto: existingProducto?.tipo_producto || 'otro',
+    descuentoBase: existingProducto?.descuento_base ? String(existingProducto.descuento_base) : '',
     entregaInmediata: existingProducto.entrega_inmediata ?? false,
     imagenes: existingProducto.imagenes,
     activo: existingProducto.activo,
@@ -150,6 +151,8 @@ export function ProductoFormView() {
   const [activo, setActivo] = useState(() => initialState.activo);
   const [formOpciones, setFormOpciones] = useState<FormOpcion[]>(() => initialState.formOpciones);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [tipoProducto, setTipoProducto] = useState<TipoProducto>(() => initialState.tipoProducto);
+  const [descuentoBase, setDescuentoBase] = useState(() => initialState.descuentoBase);
 
   // --- Image upload: Direct to Cloudinary with signed signature ---
   const uploadingStates = useState<Record<number, boolean>>({});
@@ -292,7 +295,7 @@ export function ProductoFormView() {
   const addOpcion = () => {
     const newOpcion: FormOpcion = {
       id: generateId(),
-      tipo: 'medida',
+      tipo: 'select' as TipoOpcionInput,
       nombre: '',
       requerida: false,
       orden: formOpciones.length + 1,
@@ -324,7 +327,7 @@ export function ProductoFormView() {
             {
               id: generateId(),
               nombre: '',
-              precio_incremento: 0,
+              incremento_precio: 0,
               activo: true,
             },
           ],
@@ -400,6 +403,8 @@ export function ProductoFormView() {
       garantia: garantia.trim(),
       precio_base: Number(precioBase),
       precio_descuento: precioDescuentoValue,
+      tipo_producto: tipoProducto,
+      descuento_base: Number(descuentoBase) || 0,
       entrega_inmediata: entregaInmediata,
       imagenes,
       activo,
@@ -691,6 +696,57 @@ export function ProductoFormView() {
             </div>
           </div>
 
+          {/* Tipo de Producto & Descuento Base */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Tipo de Producto */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider">
+                Tipo de Producto *
+              </Label>
+              <Select value={tipoProducto} onValueChange={(v: TipoProducto) => setTipoProducto(v)}>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Seleccionar tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(TIPO_PRODUCTO_LABELS).map(([key, label]) => (
+                    <SelectItem key={key} value={key}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground">
+                Determina el descuento automático en cotizaciones
+              </p>
+            </div>
+
+            {/* Descuento Base */}
+            <div className="space-y-1.5">
+              <Label htmlFor="descuentoBase" className="text-xs font-semibold uppercase tracking-wider">
+                Descuento Automático (COP)
+              </Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                  $
+                </span>
+                <Input
+                  id="descuentoBase"
+                  type="number"
+                  min="0"
+                  placeholder="0 = sin descuento automático"
+                  value={descuentoBase}
+                  onChange={e => setDescuentoBase(e.target.value)}
+                  className="h-10 pl-7"
+                />
+              </div>
+              {Number(descuentoBase) > 0 && (
+                <p className="text-xs text-viv-rose-dark font-semibold">
+                  Descuento automático: {formatPrice(Number(descuentoBase))} por tipo &quot;{TIPO_PRODUCTO_LABELS[tipoProducto]}&quot;
+                </p>
+              )}
+            </div>
+          </div>
+
           {/* Price preview */}
           {precioBaseNum > 0 && (
             <div className="rounded-xl bg-viv-beige/10 border border-viv-beige/30 p-4 space-y-2">
@@ -862,7 +918,7 @@ export function ProductoFormView() {
                 No hay opciones configuradas
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                Agrega opciones como medida, colchón, lencería o extras
+                Agrega opciones como selección o casilla de verificación
               </p>
             </div>
           ) : (
@@ -885,7 +941,7 @@ export function ProductoFormView() {
                     {/* Option type select */}
                     <Select
                       value={opcion.tipo}
-                      onValueChange={(v: TipoOpcion) =>
+                      onValueChange={(v: TipoOpcionInput) =>
                         updateOpcion(opcion.id, 'tipo', v)
                       }
                     >
@@ -896,7 +952,7 @@ export function ProductoFormView() {
                         {Object.entries(OPCION_TIPO_LABELS).map(([key, label]) => (
                           <SelectItem key={key} value={key}>
                             <span className="flex items-center gap-1.5">
-                              {OPCION_TIPO_ICONS[key as TipoOpcion]}
+                              {OPCION_TIPO_ICONS[key as TipoOpcionInput]}
                               {label}
                             </span>
                           </SelectItem>
@@ -945,12 +1001,10 @@ export function ProductoFormView() {
                     <Badge
                       variant="secondary"
                       className={`text-[10px] ${
-                        opcion.tipo === 'medida'
+                        opcion.tipo === 'select'
                           ? 'bg-viv-bluegrey/15 text-viv-bluegrey'
-                          : opcion.tipo === 'colchon'
+                          : opcion.tipo === 'checkbox'
                           ? 'bg-viv-sage/15 text-viv-sage-dark'
-                          : opcion.tipo === 'lenceria'
-                          ? 'bg-viv-peach/15 text-viv-peach-dark'
                           : 'bg-viv-beige/15 text-viv-beige'
                       }`}
                     >
@@ -1011,15 +1065,15 @@ export function ProductoFormView() {
                                 min="0"
                                 placeholder="0"
                                 value={
-                                  valor.precio_incremento > 0
-                                    ? valor.precio_incremento
+                                  valor.incremento_precio > 0
+                                    ? valor.incremento_precio
                                     : ''
                                 }
                                 onChange={e =>
                                   updateValorInOpcion(
                                     opcion.id,
                                     valor.id,
-                                    'precio_incremento',
+                                    'incremento_precio',
                                     Number(e.target.value) || 0
                                   )
                                 }

@@ -113,7 +113,7 @@ export function CotizacionDetalleView() {
         .filter(name => !name.toLowerCase().startsWith('sin'))
         .join(', ');
       const optionsPart = opcionesStr ? ` (${opcionesStr})` : '';
-      return `• ${item.producto_nombre}${optionsPart} - ${formatPrice(item.precio_unitario * item.cantidad)}`;
+      return `• ${item.producto_nombre}${optionsPart} - ${formatPrice((item.precio_total_item || item.subtotal) * item.cantidad)}`;
     }).join('\n');
 
     const message =
@@ -287,9 +287,9 @@ export function CotizacionDetalleView() {
                             className="text-[10px] border-viv-beige"
                           >
                             {op.opcion_nombre}: {op.valor_nombre}
-                            {op.precio_incremento > 0 && (
+                            {(op.incremento_precio || op.precio_incremento || 0) > 0 && (
                               <span className="ml-1 text-viv-sage-dark font-semibold">
-                                +{formatPrice(op.precio_incremento)}
+                                +{formatPrice(op.incremento_precio || op.precio_incremento || 0)}
                               </span>
                             )}
                           </Badge>
@@ -297,7 +297,40 @@ export function CotizacionDetalleView() {
                       </div>
                     )}
 
-                    {/* Quantity + unit price */}
+                    {/* Price breakdown */}
+                    <div className="mt-2 pl-5 space-y-1 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Precio base</span>
+                        <span>{formatPrice(item.precio_unitario)}</span>
+                      </div>
+                      {item.opciones_seleccionadas.length > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Incrementos</span>
+                          <span className="text-viv-sage-dark">
+                            +{formatPrice(item.opciones_seleccionadas.reduce((s, o) => s + (o.incremento_precio || o.precio_incremento || 0), 0))}
+                          </span>
+                        </div>
+                      )}
+                      {(item.descuento_aplicado || 0) > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Descuento</span>
+                          <span className="text-viv-rose-dark">-{formatPrice(item.descuento_aplicado)}</span>
+                        </div>
+                      )}
+                      <Separator className="my-1" />
+                      <div className="flex justify-between font-semibold">
+                        <span>Precio final</span>
+                        <span className="text-viv-sage-dark">{formatPrice(item.precio_total_item || item.subtotal)}</span>
+                      </div>
+                      {item.cantidad > 1 && (
+                        <div className="flex justify-between text-muted-foreground">
+                          <span>{formatPrice(item.precio_total_item || item.subtotal)} x {item.cantidad}</span>
+                          <span className="font-semibold text-foreground">{formatPrice((item.precio_total_item || item.subtotal) * item.cantidad)}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Quantity */}
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>Cantidad: {item.cantidad}</span>
                       <span>{formatPrice(item.precio_unitario)} c/u</span>
@@ -348,6 +381,12 @@ export function CotizacionDetalleView() {
                 <span className="text-sm text-muted-foreground">Subtotal</span>
                 <span className="text-sm font-semibold">{formatPrice(cotizacion.subtotal)}</span>
               </div>
+              {cotizacion.items.some(item => (item.descuento_aplicado || 0) > 0) && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Subtotal sin descuento</span>
+                  <span className="text-sm">{formatPrice(cotizacion.items.reduce((s, item) => s + item.subtotal * item.cantidad, 0))}</span>
+                </div>
+              )}
               {cotizacion.descuento_total > 0 && (
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-viv-rose-dark">Descuento</span>
