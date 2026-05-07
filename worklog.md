@@ -106,3 +106,30 @@ Stage Summary:
 - 6 API routes ready for Supabase integration
 - SQL script includes: tables, indexes, RLS, triggers, initial data
 - Environment variables template ready for Vercel deployment
+---
+Task ID: 1
+Agent: Main
+Task: Fix data loss + PWA mobile update + multi-device sync
+
+Work Log:
+- Diagnosed root cause of data loss: loadFromSupabase() was overwriting productos/opciones/opcionValores with empty Supabase arrays, and saveCategoriaToSupabase was checking local state instead of Supabase for existence
+- Rewrote data-store.ts with comprehensive fixes:
+  - loadFromSupabase: Protects ALL data types (not just categorias/subcategorias) from being overwritten by empty Supabase results
+  - loadFromSupabase: Added local→Supabase sync logic that pushes local items that don't exist in Supabase
+  - saveCategoriaToSupabase: Fixed INSERT/UPDATE detection using isUUID() helper and Supabase queries instead of local state check
+  - saveSubcategoriaToSupabase: Same fix as categorias
+  - saveProductoToSupabase: Fixed to handle UUID vs non-UUID IDs correctly
+  - Added syncLocalToSupabase() function for manual full sync
+  - When Supabase generates UUIDs for new items, local state is updated with the real UUID
+- Removed DEMO data defaults from store initialization (now starts empty, loads from Supabase)
+- PWA fixes: SW v6 with updateViaCache:none, Cache-Control:no-cache headers for sw.js, 2-minute update checks
+- Added refresh button (RefreshCw icon) to catalog view for manual cloud sync
+- Updated catalogo-view to always call loadFromSupabase on mount (not just when !isLoaded)
+- Updated next.config.ts with no-cache headers for /sw.js
+- Build verified, pushed to GitHub
+
+Stage Summary:
+- Data loss root cause: saveCategoriaToSupabase always did UPDATE instead of INSERT because local state already had the item (addCategoria was called before save)
+- PWA root cause: Mobile browsers cached the old SW file; added updateViaCache:none and no-cache headers
+- Key files changed: data-store.ts, sw.js, layout.tsx, next.config.ts, catalogo-view.tsx
+- Deploy: pushed to main branch, Vercel will auto-deploy
