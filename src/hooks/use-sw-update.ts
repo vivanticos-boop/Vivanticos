@@ -35,6 +35,9 @@ export function useSwUpdate(): UpdateInfo {
           }, 1500);
         }
       }
+      if (event.data && event.data.type === 'FORCE_RELOAD') {
+        window.location.reload();
+      }
     };
 
     navigator.serviceWorker.addEventListener('message', handleMessage);
@@ -65,8 +68,23 @@ export function useSwUpdate(): UpdateInfo {
       });
     });
 
+    // Periodic check every 5 minutes (mobile needs this)
+    const interval = setInterval(async () => {
+      try {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg) {
+          await reg.update();
+          if (reg.waiting) {
+            setHasUpdate(true);
+            showUpdateToast();
+          }
+        }
+      } catch {}
+    }, 300000);
+
     return () => {
       navigator.serviceWorker.removeEventListener('message', handleMessage);
+      clearInterval(interval);
     };
   }, []);
 
@@ -92,6 +110,8 @@ export function useSwUpdate(): UpdateInfo {
         // Tell the waiting SW to activate
         reg.waiting.postMessage({ type: 'SKIP_WAITING' });
         // The SW will claim clients and we'll get a message, then reload
+        // Safety: force reload after 3s if SW message doesn't trigger it
+        setTimeout(() => window.location.reload(), 3000);
       } else if (reg?.installing) {
         // Wait for install to finish, then skip waiting
         reg.installing.addEventListener('statechange', () => {
@@ -99,9 +119,13 @@ export function useSwUpdate(): UpdateInfo {
             reg.installing.postMessage({ type: 'SKIP_WAITING' });
           }
         });
+        setTimeout(() => window.location.reload(), 3000);
       } else {
-        // No update pending, just reload
-        window.location.reload();
+        // No update pending, force a full cache clear and reload
+        if (reg) {
+          reg.active?.postMessage({ type: 'FORCE_UPDATE' });
+        }
+        setTimeout(() => window.location.reload(), 2000);
       }
     } catch {
       // Fallback: just reload
@@ -120,6 +144,7 @@ export function useSwUpdate(): UpdateInfo {
         // If there's a waiting worker after update check
         if (reg.waiting) {
           setHasUpdate(true);
+          showUpdateToast();
         }
       }
     } catch (err) {

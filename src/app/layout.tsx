@@ -75,7 +75,18 @@ export default function RootLayout({
             __html: `
               if ('serviceWorker' in navigator) {
                 window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/sw.js');
+                  navigator.serviceWorker.register('/sw.js').then(function(reg) {
+                    // Force update check on every page load
+                    reg.update();
+                    // Check for updates every 5 minutes
+                    setInterval(function() { reg.update(); }, 300000);
+                  });
+                });
+                // Listen for forced reloads from SW
+                navigator.serviceWorker.addEventListener('message', function(event) {
+                  if (event.data && event.data.type === 'FORCE_RELOAD') {
+                    window.location.reload();
+                  }
                 });
               }
             `,
