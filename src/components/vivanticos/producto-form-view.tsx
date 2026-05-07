@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, Plus, Trash2, ImagePlus, Ruler, Bed, Layers, Tag, GripVertical, X, Save, Package, Truck } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, ImagePlus, Ruler, Bed, Layers, Tag, GripVertical, X, Save, Package, Truck, Loader2 } from 'lucide-react';
 import { formatPrice, generateId } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { Producto, TipoOpcion } from '@/types';
@@ -151,7 +151,7 @@ export function ProductoFormView() {
   const [formOpciones, setFormOpciones] = useState<FormOpcion[]>(() => initialState.formOpciones);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Load Cloudinary widget script
+  // Load Cloudinary widget script (fallback)
   useEffect(() => {
     if (!document.getElementById('cloudinary-widget-script')) {
       const script = document.createElement('script');
@@ -162,7 +162,114 @@ export function ProductoFormView() {
     }
   }, []);
 
-  // Wrap setCategoriaId to also reset subcategoria when category changes
+  // --- Image upload via API route ---
+  const uploadingStates = useState<Record<number, boolean>>({});
+  const setUploading = (index: number, val: boolean) => {
+    uploadingStates[1](prev => ({ ...prev, [index]: val }));
+  };
+  const isUploading = (index: number) => uploadingStates[0][index] || false;
+
+  const handleImageUpload = async (index: number, file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error('Solo se permiten imágenes');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('La imagen no debe superar 5MB');
+      return;
+    }
+
+    setUploading(index, true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', 'vivanticos/productos');
+
+      const response = await fetch('/api/cloudinary', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al subir imagen');
+      }
+
+      const data = await response.json();
+      const newImagenes = [...imagenes];
+      if (index < newImagenes.length) {
+        newImagenes[index] = data.url;
+      } else {
+        newImagenes.push(data.url);
+      }
+      setImagenes(newImagenes);
+      toast.success('Imagen subida correctamente');
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast.error(error.message || 'Error al subir imagen');
+    } finally {
+      setUploading(index, false);
+    }
+  };
+
+  const handleFileSelect = (index: number) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        handleImageUpload(index, file);
+      }
+    };
+    input.click();
+  };
+
+  // Fallback: Cloudinary widget (only if API route fails)
+  const openCloudinaryWidget = (index: number) => {
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+    if (!cloudName) {
+      toast.error('Cloudinary no está configurado');
+      return;
+    }
+    // @ts-ignore
+    if (!window.cloudinary) {
+      // Widget not loaded, use direct upload instead
+      handleFileSelect(index);
+      return;
+    }
+    // @ts-ignore
+    const widget = window.cloudinary.createUploadWidget(
+      {
+        cloudName,
+        uploadPreset,
+        folder: 'vivanticos/productos',
+        maxFiles: 1,
+        maxImageFileSize: 5000000,
+        cropping: true,
+        croppingAspectRatio: 1,
+      },
+      (error: any, result: any) => {
+        if (!error && result.event === 'success') {
+          const url = result.info.secure_url;
+          const newImagenes = [...imagenes];
+          if (index < newImagenes.length) {
+            newImagenes[index] = url;
+          } else {
+            newImagenes.push(url);
+          }
+          setImagenes(newImagenes);
+          toast.success('Imagen subida');
+        }
+        if (error) {
+          toast.error('Error al subir imagen. Intenta con el botón de subir.');
+        }
+      }
+    );
+    widget.open();
+  };
   const setCategoriaId = useCallback((newCatId: string) => {
     setCategoriaIdRaw(newCatId);
     const subBelongsToCategory = subcategorias.some(
@@ -212,45 +319,6 @@ export function ProductoFormView() {
       </div>
     );
   }
-
-  // --- Cloudinary image upload ---
-  const openCloudinaryWidget = (index: number) => {
-    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-    if (!cloudName) {
-      toast.error('Cloudinary no está configurado');
-      return;
-    }
-    // @ts-ignore
-    const widget = window.cloudinary.createUploadWidget(
-      {
-        cloudName,
-        uploadPreset,
-        folder: 'vivanticos/productos',
-        maxFiles: 1,
-        maxImageFileSize: 5000000,
-        cropping: true,
-        croppingAspectRatio: 1,
-      },
-      (error: any, result: any) => {
-        if (!error && result.event === 'success') {
-          const url = result.info.secure_url;
-          const newImagenes = [...imagenes];
-          if (index < newImagenes.length) {
-            newImagenes[index] = url;
-          } else {
-            newImagenes.push(url);
-          }
-          setImagenes(newImagenes);
-          toast.success('Imagen subida');
-        }
-        if (error) {
-          toast.error('Error al subir imagen');
-        }
-      }
-    );
-    widget.open();
-  };
 
   const removeImage = (index: number) => {
     setImagenes(imagenes.filter((_, i) => i !== index));
@@ -740,29 +808,51 @@ export function ProductoFormView() {
                 >
                   <X size={12} />
                 </button>
+                {/* Replace image overlay */}
+                <button
+                  onClick={() => handleFileSelect(index)}
+                  className="absolute bottom-1.5 left-1.5 right-1.5 py-1 rounded-lg bg-black/50 text-white text-[10px] font-medium opacity-0 group-hover:opacity-100 transition-opacity text-center"
+                >
+                  Reemplazar
+                </button>
               </div>
             ))}
 
             {/* Upload slots for empty positions */}
-            {Array.from({ length: Math.max(0, 4 - imagenes.length) }).map((_, i) => (
-              <button
-                key={`upload-${i}`}
-                onClick={() => openCloudinaryWidget(imagenes.length + i)}
-                className="aspect-square rounded-xl border-2 border-dashed border-viv-sage/30 hover:border-viv-sage/60 bg-viv-sage/5 hover:bg-viv-sage/10 transition-colors flex flex-col items-center justify-center gap-1.5 cursor-pointer group"
-                aria-label="Subir imagen"
-              >
-                <ImagePlus
-                  size={24}
-                  className="text-viv-sage/50 group-hover:text-viv-sage transition-colors"
-                />
-                <span className="text-[10px] text-viv-sage/50 group-hover:text-viv-sage font-medium transition-colors">
-                  Subir imagen
-                </span>
-              </button>
-            ))}
+            {Array.from({ length: Math.max(0, 4 - imagenes.length) }).map((_, i) => {
+              const slotIndex = imagenes.length + i;
+              return (
+                <button
+                  key={`upload-${i}`}
+                  onClick={() => handleFileSelect(slotIndex)}
+                  disabled={isUploading(slotIndex)}
+                  className="aspect-square rounded-xl border-2 border-dashed border-viv-sage/30 hover:border-viv-sage/60 bg-viv-sage/5 hover:bg-viv-sage/10 transition-colors flex flex-col items-center justify-center gap-1.5 cursor-pointer group disabled:opacity-50 disabled:cursor-wait"
+                  aria-label="Subir imagen"
+                >
+                  {isUploading(slotIndex) ? (
+                    <>
+                      <Loader2 size={24} className="text-viv-sage animate-spin" />
+                      <span className="text-[10px] text-viv-sage font-medium">
+                        Subiendo...
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <ImagePlus
+                        size={24}
+                        className="text-viv-sage/50 group-hover:text-viv-sage transition-colors"
+                      />
+                      <span className="text-[10px] text-viv-sage/50 group-hover:text-viv-sage font-medium transition-colors">
+                        Subir imagen
+                      </span>
+                    </>
+                  )}
+                </button>
+              );
+            })}
           </div>
           <p className="text-xs text-muted-foreground mt-2">
-            Máximo 4 imágenes. Haz clic en un espacio para subir.
+            Máximo 4 imágenes (máx 5MB cada una). Toca para seleccionar.
           </p>
         </CardContent>
       </Card>
