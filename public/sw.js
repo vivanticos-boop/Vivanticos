@@ -1,5 +1,5 @@
-const CACHE_NAME = 'vivanticos-v5';
-const APP_VERSION = '1.4.0';
+const CACHE_NAME = 'vivanticos-v6';
+const APP_VERSION = '1.5.0';
 
 const STATIC_ASSETS = [
   '/',
@@ -67,9 +67,20 @@ self.addEventListener('message', (event) => {
       });
     });
   }
+  if (event.data && event.data.type === 'CLEAR_CACHE_AND_RELOAD') {
+    caches.keys().then((names) => {
+      return Promise.all(names.map((name) => caches.delete(name)));
+    }).then(() => {
+      self.clients.matchAll().then((clients) => {
+        clients.forEach((client) => {
+          client.postMessage({ type: 'FORCE_RELOAD' });
+        });
+      });
+    });
+  }
 });
 
-// Fetch event - network first, fallback to cache
+// Fetch event - network first with aggressive cache bypass for HTML
 self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
@@ -77,10 +88,10 @@ self.addEventListener('fetch', (event) => {
   // Skip API calls and external requests
   if (event.request.url.includes('/api/') || !event.request.url.startsWith(self.location.origin)) return;
 
-  // For navigation requests (HTML pages), always try network first with short timeout
+  // For navigation requests (HTML pages), ALWAYS fetch from network - never use cache
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request)
+      fetch(event.request, { cache: 'no-store' })
         .then((response) => {
           if (response.status === 200) {
             const responseClone = response.clone();
@@ -99,11 +110,34 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // For static assets - network first, cache fallback
+  // For JS/CSS/static assets - network first with short timeout, cache fallback
+  const isStaticAsset = event.request.url.match(/\.(js|css|woff2?|ttf|png|jpg|jpeg|gif|svg|ico|webp|wasm)$/i);
+
+  if (isStaticAsset) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response.status === 200) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseClone);
+            });
+          }
+          return response;
+        })
+        .catch(() => {
+          return caches.match(event.request).then((cachedResponse) => {
+            return cachedResponse || new Response('Offline', { status: 503 });
+          });
+        })
+    );
+    return;
+  }
+
+  // For other requests (JSON, etc.) - network first, cache fallback
   event.respondWith(
-    fetch(event.request)
+    fetch(event.request, { cache: 'no-cache' })
       .then((response) => {
-        // Cache successful responses
         if (response.status === 200) {
           const responseClone = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
@@ -113,7 +147,6 @@ self.addEventListener('fetch', (event) => {
         return response;
       })
       .catch(() => {
-        // Fallback to cache
         return caches.match(event.request).then((cachedResponse) => {
           return cachedResponse || new Response('Offline', { status: 503 });
         });

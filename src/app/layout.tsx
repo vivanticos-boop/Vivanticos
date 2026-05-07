@@ -75,18 +75,58 @@ export default function RootLayout({
             __html: `
               if ('serviceWorker' in navigator) {
                 window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/sw.js').then(function(reg) {
+                  // Register SW with updateViaCache: 'none' to always check network for SW updates
+                  navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).then(function(reg) {
                     // Force update check on every page load
                     reg.update();
-                    // Check for updates every 5 minutes
-                    setInterval(function() { reg.update(); }, 300000);
+
+                    // Check for updates every 2 minutes (mobile needs frequent checks)
+                    setInterval(function() { reg.update(); }, 120000);
+
+                    // If there's a waiting SW, activate it immediately
+                    if (reg.waiting) {
+                      reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+                    }
+
+                    // Listen for new SW installations
+                    reg.addEventListener('updatefound', function() {
+                      var newWorker = reg.installing;
+                      if (newWorker) {
+                        newWorker.addEventListener('statechange', function() {
+                          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            // New version ready — activate immediately
+                            newWorker.postMessage({ type: 'SKIP_WAITING' });
+                          }
+                        });
+                      }
+                    });
+                  }).catch(function(err) {
+                    console.log('SW registration failed:', err);
                   });
                 });
-                // Listen for forced reloads from SW
+
+                // Listen for SW updates and forced reloads
                 navigator.serviceWorker.addEventListener('message', function(event) {
-                  if (event.data && event.data.type === 'FORCE_RELOAD') {
-                    window.location.reload();
+                  if (event.data) {
+                    if (event.data.type === 'FORCE_RELOAD' || event.data.type === 'SW_UPDATED') {
+                      // Clear localStorage cache to force fresh data from Supabase
+                      try {
+                        var stored = localStorage.getItem('vivanticos-catalogo');
+                        if (stored) {
+                          var parsed = JSON.parse(stored);
+                          // Keep the data but mark it as needing refresh
+                          parsed._needsRefresh = true;
+                          localStorage.setItem('vivanticos-catalogo', JSON.stringify(parsed));
+                        }
+                      } catch(e) {}
+                      window.location.reload();
+                    }
                   }
+                });
+
+                // When SW controller changes (new SW took over), reload
+                navigator.serviceWorker.addEventListener('controllerchange', function() {
+                  window.location.reload();
                 });
               }
             `,

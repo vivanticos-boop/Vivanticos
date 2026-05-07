@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Search, Plus, Grid3X3, List, Truck, PackageX, MessageCircle, FileText, Tag } from 'lucide-react';
+import { Search, Plus, Grid3X3, List, Truck, PackageX, MessageCircle, FileText, Tag, RefreshCw } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -28,16 +28,15 @@ export function CatalogoView() {
   const setSearchTerm = useCatalogoStore(s => s.setSearchTerm);
   const filteredProductos = useCatalogoStore(s => s.filteredProductos);
   const isLoaded = useCatalogoStore(s => s.isLoaded);
+  const isLoading = useCatalogoStore(s => s.isLoading);
   const loadFromSupabase = useCatalogoStore(s => s.loadFromSupabase);
 
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
-  // Cargar datos de Supabase al montar
+  // Cargar datos de Supabase al montar — siempre refrescar para multi-dispositivo
   useEffect(() => {
-    if (!isLoaded) {
-      loadFromSupabase();
-    }
-  }, [isLoaded, loadFromSupabase]);
+    loadFromSupabase();
+  }, [loadFromSupabase]);
 
   const filtered = filteredProductos();
 
@@ -191,19 +190,31 @@ export function CatalogoView() {
             </p>
           </div>
         </div>
-        {canManage && (
+        <div className="flex items-center gap-2">
           <Button
-            className="bg-viv-sage hover:bg-viv-sage-dark text-white"
-            onClick={() => {
-              setSelectedProductoId(null);
-              navigateTo('producto-form');
-            }}
+            variant="outline"
+            size="icon"
+            className="h-9 w-9"
+            onClick={() => loadFromSupabase()}
+            disabled={isLoading}
+            title="Refrescar catálogo desde la nube"
           >
-            <Plus size={16} className="mr-2" />
-            <span className="hidden sm:inline">Nuevo Producto</span>
-            <span className="sm:hidden">Nuevo</span>
+            <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
           </Button>
-        )}
+          {canManage && (
+            <Button
+              className="bg-viv-sage hover:bg-viv-sage-dark text-white"
+              onClick={() => {
+                setSelectedProductoId(null);
+                navigateTo('producto-form');
+              }}
+            >
+              <Plus size={16} className="mr-2" />
+              <span className="hidden sm:inline">Nuevo Producto</span>
+              <span className="sm:hidden">Nuevo</span>
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* ─── Search Bar ─── */}
