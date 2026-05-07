@@ -6,6 +6,32 @@
 import { create } from 'zustand';
 import type { Cotizacion, CotizacionItem, ItemOpcionSeleccionada, EstadoCotizacion } from '@/types';
 
+// --- Persistencia localStorage ---
+const COT_STORAGE_KEY = 'vivanticos-cotizaciones';
+
+function loadCotFromStorage(): Cotizacion[] | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = localStorage.getItem(COT_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return parsed.cotizaciones || null;
+    }
+  } catch (e) {
+    console.error('Error loading cotizaciones from localStorage:', e);
+  }
+  return null;
+}
+
+function saveCotToStorage(cotizaciones: Cotizacion[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(COT_STORAGE_KEY, JSON.stringify({ cotizaciones, savedAt: new Date().toISOString() }));
+  } catch (e) {
+    console.error('Error saving cotizaciones to localStorage:', e);
+  }
+}
+
 const DEMO_COTIZACIONES: Cotizacion[] = [
   {
     id: 'cot1',
@@ -112,21 +138,34 @@ interface CotizacionState {
   calcularTotal: (items: CotizacionItem[]) => { subtotal: number; descuento: number; total: number };
 }
 
-export const useCotizacionesStore = create<CotizacionState>((set, get) => ({
-  cotizaciones: DEMO_COTIZACIONES,
+export const useCotizacionesStore = create<CotizacionState>((set, get) => {
+  const storedCot = typeof window !== 'undefined' ? loadCotFromStorage() : null;
 
-  addCotizacion: (c) => set((s) => ({ cotizaciones: [c, ...s.cotizaciones] })),
-  updateCotizacion: (c) => set((s) => ({
-    cotizaciones: s.cotizaciones.map(cot => cot.id === c.id ? c : cot),
-  })),
-  deleteCotizacion: (id) => set((s) => ({
-    cotizaciones: s.cotizaciones.filter(c => c.id !== id),
-  })),
-  updateEstado: (id, estado) => set((s) => ({
-    cotizaciones: s.cotizaciones.map(c =>
+  return {
+  cotizaciones: storedCot || DEMO_COTIZACIONES,
+
+  addCotizacion: (c) => set((s) => {
+    const cotizaciones = [c, ...s.cotizaciones];
+    saveCotToStorage(cotizaciones);
+    return { cotizaciones };
+  }),
+  updateCotizacion: (c) => set((s) => {
+    const cotizaciones = s.cotizaciones.map(cot => cot.id === c.id ? c : cot);
+    saveCotToStorage(cotizaciones);
+    return { cotizaciones };
+  }),
+  deleteCotizacion: (id) => set((s) => {
+    const cotizaciones = s.cotizaciones.filter(c => c.id !== id);
+    saveCotToStorage(cotizaciones);
+    return { cotizaciones };
+  }),
+  updateEstado: (id, estado) => set((s) => {
+    const cotizaciones = s.cotizaciones.map(c =>
       c.id === id ? { ...c, estado, actualizado_en: new Date().toISOString() } : c
-    ),
-  })),
+    );
+    saveCotToStorage(cotizaciones);
+    return { cotizaciones };
+  }),
   getCotizacion: (id) => get().cotizaciones.find(c => c.id === id),
 
   calcularTotal: (items) => {
@@ -134,4 +173,5 @@ export const useCotizacionesStore = create<CotizacionState>((set, get) => ({
     const descuento = items.reduce((sum, item) => sum + (item.descuento_aplicado || 0) * item.cantidad, 0);
     return { subtotal, descuento, total: subtotal - descuento };
   },
-}));
+  };
+});

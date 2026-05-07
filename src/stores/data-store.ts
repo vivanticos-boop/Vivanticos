@@ -7,6 +7,46 @@ import { create } from 'zustand';
 import type { Categoria, Subcategoria, Producto, ProductoOpcion, ProductoOpcionValor, TipoProducto, TipoOpcionInput } from '@/types';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
+// --- Persistencia localStorage ---
+const STORAGE_KEY = 'vivanticos-catalogo';
+
+function loadFromStorage(): Partial<CatalogoState> | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return {
+        categorias: parsed.categorias || DEMO_CATEGORIAS,
+        subcategorias: parsed.subcategorias || DEMO_SUBCATEGORIAS,
+        productos: parsed.productos || DEMO_PRODUCTOS,
+        opciones: parsed.opciones || DEMO_OPCIONES,
+        opcionValores: parsed.opcionValores || DEMO_OPCION_VALORES,
+      };
+    }
+  } catch (e) {
+    console.error('Error loading from localStorage:', e);
+  }
+  return null;
+}
+
+function saveToStorage(state: CatalogoState) {
+  if (typeof window === 'undefined') return;
+  try {
+    const data = {
+      categorias: state.categorias,
+      subcategorias: state.subcategorias,
+      productos: state.productos,
+      opciones: state.opciones,
+      opcionValores: state.opcionValores,
+      savedAt: new Date().toISOString(),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (e) {
+    console.error('Error saving to localStorage:', e);
+  }
+}
+
 // --- Datos demo (fallback cuando no hay Supabase) ---
 const DEMO_CATEGORIAS: Categoria[] = [
   { id: 'cat1', nombre: 'Cunas', icono: '🛏️', orden: 1, activa: true },
@@ -219,12 +259,16 @@ interface CatalogoState {
   deleteSubcategoriaFromSupabase: (id: string) => Promise<boolean>;
 }
 
-export const useCatalogoStore = create<CatalogoState>((set, get) => ({
-  categorias: DEMO_CATEGORIAS,
-  subcategorias: DEMO_SUBCATEGORIAS,
-  productos: DEMO_PRODUCTOS,
-  opciones: DEMO_OPCIONES,
-  opcionValores: DEMO_OPCION_VALORES,
+export const useCatalogoStore = create<CatalogoState>((set, get) => {
+  // Try loading from localStorage first (survives page refreshes)
+  const stored = typeof window !== 'undefined' ? loadFromStorage() : null;
+
+  return {
+  categorias: stored?.categorias || DEMO_CATEGORIAS,
+  subcategorias: stored?.subcategorias || DEMO_SUBCATEGORIAS,
+  productos: stored?.productos || DEMO_PRODUCTOS,
+  opciones: stored?.opciones || DEMO_OPCIONES,
+  opcionValores: stored?.opcionValores || DEMO_OPCION_VALORES,
   searchTerm: '',
   filtroCategoria: null,
   filtroSubcategoria: null,
@@ -235,29 +279,53 @@ export const useCatalogoStore = create<CatalogoState>((set, get) => ({
   setFiltroCategoria: (catId) => set({ filtroCategoria: catId, filtroSubcategoria: null }),
   setFiltroSubcategoria: (subId) => set({ filtroSubcategoria: subId }),
 
-  addProducto: (p) => set((s) => ({ productos: [...s.productos, p] })),
-  updateProducto: (p) => set((s) => ({
-    productos: s.productos.map(prod => prod.id === p.id ? p : prod),
-  })),
-  deleteProducto: (id) => set((s) => ({
-    productos: s.productos.filter(p => p.id !== id),
-  })),
+  addProducto: (p) => set((s) => {
+    const newState = { productos: [...s.productos, p] };
+    saveToStorage({ ...s, ...newState } as CatalogoState);
+    return newState;
+  }),
+  updateProducto: (p) => set((s) => {
+    const newState = { productos: s.productos.map(prod => prod.id === p.id ? p : prod) };
+    saveToStorage({ ...s, ...newState } as CatalogoState);
+    return newState;
+  }),
+  deleteProducto: (id) => set((s) => {
+    const newState = { productos: s.productos.filter(p => p.id !== id) };
+    saveToStorage({ ...s, ...newState } as CatalogoState);
+    return newState;
+  }),
 
-  addCategoria: (c) => set((s) => ({ categorias: [...s.categorias, c] })),
-  updateCategoria: (c) => set((s) => ({
-    categorias: s.categorias.map(cat => cat.id === c.id ? c : cat),
-  })),
-  deleteCategoria: (id) => set((s) => ({
-    categorias: s.categorias.filter(c => c.id !== id),
-  })),
+  addCategoria: (c) => set((s) => {
+    const newState = { categorias: [...s.categorias, c] };
+    saveToStorage({ ...s, ...newState } as CatalogoState);
+    return newState;
+  }),
+  updateCategoria: (c) => set((s) => {
+    const newState = { categorias: s.categorias.map(cat => cat.id === c.id ? c : cat) };
+    saveToStorage({ ...s, ...newState } as CatalogoState);
+    return newState;
+  }),
+  deleteCategoria: (id) => set((s) => {
+    const newState = { categorias: s.categorias.filter(c => c.id !== id) };
+    saveToStorage({ ...s, ...newState } as CatalogoState);
+    return newState;
+  }),
 
-  addSubcategoria: (sub) => set((s) => ({ subcategorias: [...s.subcategorias, sub] })),
-  updateSubcategoria: (sub) => set((s) => ({
-    subcategorias: s.subcategorias.map(su => su.id === sub.id ? sub : su),
-  })),
-  deleteSubcategoria: (id) => set((s) => ({
-    subcategorias: s.subcategorias.filter(su => su.id !== id),
-  })),
+  addSubcategoria: (sub) => set((s) => {
+    const newState = { subcategorias: [...s.subcategorias, sub] };
+    saveToStorage({ ...s, ...newState } as CatalogoState);
+    return newState;
+  }),
+  updateSubcategoria: (sub) => set((s) => {
+    const newState = { subcategorias: s.subcategorias.map(su => su.id === sub.id ? sub : su) };
+    saveToStorage({ ...s, ...newState } as CatalogoState);
+    return newState;
+  }),
+  deleteSubcategoria: (id) => set((s) => {
+    const newState = { subcategorias: s.subcategorias.filter(su => su.id !== id) };
+    saveToStorage({ ...s, ...newState } as CatalogoState);
+    return newState;
+  }),
 
   getOpcionesByProducto: (productoId) => get().opciones.filter(o => o.producto_id === productoId),
   getValoresByOpcion: (opcionId) => get().opcionValores.filter(v => v.opcion_id === opcionId),
@@ -388,6 +456,10 @@ export const useCatalogoStore = create<CatalogoState>((set, get) => ({
         isLoaded: true,
         isLoading: false,
       });
+
+      // Save to localStorage after loading from Supabase
+      const currentState = get();
+      saveToStorage(currentState);
 
       console.log(`Catálogo cargado desde Supabase: ${productos.length} productos, ${finalCategorias.length} categorías (${categorias.length > 0 ? 'Supabase' : 'demo'})`);
     } catch (error) {
@@ -710,4 +782,5 @@ export const useCatalogoStore = create<CatalogoState>((set, get) => ({
       return false;
     }
   },
-}));
+  };
+});
