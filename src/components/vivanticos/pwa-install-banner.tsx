@@ -3,69 +3,44 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Download, X, Smartphone } from 'lucide-react';
-
-interface BeforeInstallPromptEvent extends Event {
-  prompt(): Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
-}
+import { usePwaInstall } from '@/hooks/use-pwa-install';
 
 export function PwaInstallBanner() {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const { canInstall, isInstalled, isIOS, promptInstall } = usePwaInstall();
   const [showBanner, setShowBanner] = useState(false);
-  const [isIOS, setIsIOS] = useState(false);
-  const [isStandalone, setIsStandalone] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    // Check if already installed (standalone mode)
-    const standalone = window.matchMedia('(display-mode: standalone)').matches
-      || (window.navigator as unknown as { standalone?: boolean }).standalone === true;
-    setIsStandalone(standalone);
+    if (isInstalled || dismissed) return;
 
-    if (standalone) return;
-
-    // Check if iOS
-    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    setIsIOS(ios);
-
-    // Listen for beforeinstallprompt (Android/Chrome)
-    const handler = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
-      setShowBanner(true);
-    };
-
-    window.addEventListener('beforeinstallprompt', handler);
-
-    // Show banner for iOS too after a delay
-    if (ios) {
-      const dismissed = localStorage.getItem('pwa-ios-dismissed');
-      if (!dismissed) {
-        setTimeout(() => setShowBanner(true), 3000);
+    // Show banner quickly - after 1.5 seconds
+    const timer = setTimeout(() => {
+      // Check if user dismissed it recently (within 7 days)
+      const dismissedAt = localStorage.getItem('pwa-banner-dismissed');
+      if (dismissedAt) {
+        const daysSince = (Date.now() - parseInt(dismissedAt)) / (1000 * 60 * 60 * 24);
+        if (daysSince < 7) return;
       }
-    }
+      setShowBanner(true);
+    }, 1500);
 
-    return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
+    return () => clearTimeout(timer);
+  }, [isInstalled, dismissed]);
 
   const handleInstall = async () => {
-    if (deferredPrompt) {
-      await deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        setShowBanner(false);
-      }
-      setDeferredPrompt(null);
+    const accepted = await promptInstall();
+    if (accepted) {
+      setShowBanner(false);
     }
   };
 
   const handleDismiss = () => {
     setShowBanner(false);
-    if (isIOS) {
-      localStorage.setItem('pwa-ios-dismissed', 'true');
-    }
+    setDismissed(true);
+    localStorage.setItem('pwa-banner-dismissed', String(Date.now()));
   };
 
-  if (!showBanner || isStandalone) return null;
+  if (!showBanner || isInstalled || !canInstall) return null;
 
   return (
     <div className="fixed bottom-20 md:bottom-4 left-4 right-4 md:left-auto md:right-4 md:max-w-sm z-50 animate-slide-up">

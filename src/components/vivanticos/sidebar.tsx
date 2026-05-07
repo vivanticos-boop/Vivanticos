@@ -10,7 +10,9 @@ import {
   Users,
   Settings,
   X,
+  Download,
 } from 'lucide-react';
+import { usePwaInstall } from '@/hooks/use-pwa-install';
 import type { AppView } from '@/types';
 
 interface SidebarProps {
@@ -30,6 +32,7 @@ export function Sidebar({ onClose }: SidebarProps) {
   const currentView = useAppStore(s => s.currentView);
   const navigateTo = useAppStore(s => s.navigateTo);
   const currentUser = useAppStore(s => s.currentUser);
+  const { canInstall, promptInstall } = usePwaInstall();
 
   const handleNav = (view: AppView) => {
     navigateTo(view);
@@ -91,6 +94,21 @@ export function Sidebar({ onClose }: SidebarProps) {
           );
         })}
       </nav>
+
+      {/* Install App Button */}
+      {canInstall && (
+        <div className="px-3 pb-2">
+          <button
+            onClick={async () => {
+              await promptInstall();
+            }}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-viv-sage-dark bg-viv-sage/10 hover:bg-viv-sage/20 transition-all duration-200"
+          >
+            <Download size={20} className="text-viv-sage-dark" />
+            Instalar App
+          </button>
+        </div>
+      )}
 
       {/* User info */}
       <div className="px-3 py-4 border-t border-border">

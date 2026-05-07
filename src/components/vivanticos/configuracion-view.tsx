@@ -21,9 +21,13 @@ import {
   Clock,
   Moon,
   Package,
+  Download,
+  Smartphone,
+  Check,
 } from 'lucide-react';
 import { getRolName, getRolColor, formatDateTime } from '@/lib/utils';
 import { toast } from 'sonner';
+import { usePwaInstall } from '@/hooks/use-pwa-install';
 
 function getInitials(nombre: string): string {
   return nombre
@@ -47,6 +51,8 @@ export function ConfiguracionView() {
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
+  const { canInstall, isInstalled, isIOS, promptInstall } = usePwaInstall();
+  const [justInstalled, setJustInstalled] = useState(false);
 
   if (!currentUser) return null;
 
@@ -172,6 +178,78 @@ export function ConfiguracionView() {
           </div>
         </CardContent>
       </Card>
+
+      {/* PWA Install Section */}
+      {(canInstall || isInstalled) && (
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle
+              className="text-base"
+              style={{ fontFamily: 'var(--font-league-spartan)' }}
+            >
+              <Smartphone size={16} className="inline mr-2" />
+              App Móvil
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isInstalled || justInstalled ? (
+              <div className="flex items-center gap-3 bg-viv-sage/10 rounded-xl p-4">
+                <div className="w-10 h-10 rounded-full bg-viv-sage/20 flex items-center justify-center flex-shrink-0">
+                  <Check size={20} className="text-viv-sage-dark" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-viv-sage-dark">App instalada</p>
+                  <p className="text-xs text-muted-foreground">Vivanticos está instalada en tu dispositivo</p>
+                </div>
+              </div>
+            ) : isIOS ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-viv-peach/15 flex items-center justify-center flex-shrink-0">
+                    <Download size={20} className="text-viv-peach-dark" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Instalar en iOS</p>
+                    <p className="text-xs text-muted-foreground">Agrega Vivanticos a tu pantalla de inicio</p>
+                  </div>
+                </div>
+                <div className="text-xs text-muted-foreground space-y-2 bg-viv-sage/5 rounded-xl p-3">
+                  <ol className="list-decimal pl-4 space-y-1.5">
+                    <li>Toca el ícono de <strong>Compartir</strong> en Safari (cuadrado con flecha arriba)</li>
+                    <li>Desplázate y selecciona <strong>"Agregar a pantalla de inicio"</strong></li>
+                    <li>Toca <strong>"Agregar"</strong> en la esquina superior derecha</li>
+                  </ol>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-viv-peach/15 flex items-center justify-center flex-shrink-0">
+                    <Download size={20} className="text-viv-peach-dark" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Instalar aplicación</p>
+                    <p className="text-xs text-muted-foreground">Acceso rápido desde tu pantalla de inicio</p>
+                  </div>
+                </div>
+                <Button
+                  className="w-full bg-viv-sage hover:bg-viv-sage-dark text-white h-10"
+                  onClick={async () => {
+                    const accepted = await promptInstall();
+                    if (accepted) {
+                      setJustInstalled(true);
+                      toast.success('App instalada correctamente');
+                    }
+                  }}
+                >
+                  <Download size={16} className="mr-2" />
+                  Instalar App
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Sync Section */}
       <Card className="border-0 shadow-sm">
