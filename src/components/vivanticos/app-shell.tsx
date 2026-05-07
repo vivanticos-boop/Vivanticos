@@ -42,7 +42,7 @@ export function AppShell() {
   return (
     <div className="min-h-screen flex bg-background">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 border-r border-border bg-white">
+      <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 border-r border-border bg-sidebar">
         <Sidebar />
       </aside>
 
@@ -53,7 +53,7 @@ export function AppShell() {
             className="fixed inset-0 bg-black/30"
             onClick={() => useAppStore.getState().setSidebarOpen(false)}
           />
-          <aside className="fixed inset-y-0 left-0 w-64 bg-white z-50 animate-fade-in">
+          <aside className="fixed inset-y-0 left-0 w-64 bg-sidebar z-50 animate-fade-in">
             <Sidebar onClose={() => useAppStore.getState().setSidebarOpen(false)} />
           </aside>
         </div>
