@@ -357,9 +357,13 @@ export const useCatalogoStore = create<CatalogoState>((set, get) => ({
         activo: v.activo ?? true,
       }));
 
+      // Solo reemplazar datos demo si Supabase tiene datos; si no, mantener demo como fallback
+      const finalCategorias = categorias.length > 0 ? categorias : get().categorias;
+      const finalSubcategorias = subcategorias.length > 0 ? subcategorias : get().subcategorias;
+
       set({
-        categorias,
-        subcategorias,
+        categorias: finalCategorias,
+        subcategorias: finalSubcategorias,
         productos,
         opciones,
         opcionValores,
@@ -367,7 +371,7 @@ export const useCatalogoStore = create<CatalogoState>((set, get) => ({
         isLoading: false,
       });
 
-      console.log(`Catálogo cargado desde Supabase: ${productos.length} productos, ${categorias.length} categorías`);
+      console.log(`Catálogo cargado desde Supabase: ${productos.length} productos, ${finalCategorias.length} categorías (${categorias.length > 0 ? 'Supabase' : 'demo'})`);
     } catch (error) {
       console.error('Error cargando datos desde Supabase:', error);
       set({ isLoaded: true, isLoading: false });
