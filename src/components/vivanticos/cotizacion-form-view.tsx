@@ -64,6 +64,14 @@ const OPCION_TIPO_ICONS: Record<TipoOpcionInput, React.ReactNode> = {
   checkbox: <Tag size={14} />,
 };
 
+// Opcionales predefinidos (configuraciones extra)
+const OPCIONALES_PREDEFINIDOS = [
+  { id: 'cuna-120', nombre: 'Aumento cuna 1.20x1.90', valor: 300000, categoria: 'cuna' },
+  { id: 'cuna-140', nombre: 'Aumento cuna 1.40x1.90', valor: 600000, categoria: 'cuna' },
+  { id: 'colchon-120', nombre: 'Aumento colchon 1.20x1.90', valor: 100000, categoria: 'colchon' },
+  { id: 'colchon-140', nombre: 'Aumento colchon 1.40x1.90', valor: 200000, categoria: 'colchon' },
+] as const;
+
 // Icon helper based on option name
 const getOpcionIcon = (nombre: string): React.ReactNode => {
   const lower = nombre.toLowerCase();
@@ -502,6 +510,91 @@ export function CotizacionFormView() {
     setItems(items.map(i =>
       i.id === itemId ? { ...i, cantidad: qty } : i
     ));
+  };
+
+  // Update item precio base (editable)
+  const handleUpdatePrecioBase = (itemId: string, nuevoPrecio: number) => {
+    if (nuevoPrecio < 0) return;
+    setItems(items.map(i => {
+      if (i.id !== itemId) return i;
+      const incrementos = i.subtotal - i.precio_unitario;
+      const nuevoSubtotal = nuevoPrecio + incrementos;
+      return {
+        ...i,
+        precio_unitario: nuevoPrecio,
+        subtotal: nuevoSubtotal,
+        precio_total_item: nuevoSubtotal - i.descuento_aplicado,
+      };
+    }));
+  };
+
+  // Add optional config to item
+  const handleAddOpcionalToItem = (itemId: string, opcional: typeof OPCIONALES_PREDEFINIDOS[0]) => {
+    setItems(items.map(i => {
+      if (i.id !== itemId) return i;
+      // Check if already exists
+      const exists = i.opciones_seleccionadas.some(op => op.opcion_nombre === opcional.nombre);
+      if (exists) return i;
+      
+      const nuevaOpcion: ItemOpcionSeleccionada = {
+        opcion_id: generateId(),
+        opcion_nombre: opcional.nombre,
+        opcion_tipo: 'select',
+        valor_id: generateId(),
+        valor_nombre: opcional.nombre,
+        incremento_precio: opcional.valor,
+      };
+      
+      const nuevasOpciones = [...i.opciones_seleccionadas, nuevaOpcion];
+      const nuevosIncrementos = nuevasOpciones.reduce((sum, op) => sum + op.incremento_precio, 0);
+      const nuevoSubtotal = i.precio_unitario + nuevosIncrementos;
+      
+      return {
+        ...i,
+        opciones_seleccionadas: nuevasOpciones,
+        subtotal: nuevoSubtotal,
+        precio_total_item: nuevoSubtotal - i.descuento_aplicado,
+      };
+    }));
+  };
+
+  // Update optional config value
+  const handleUpdateOpcionalValue = (itemId: string, opcionId: string, nuevoValor: number) => {
+    setItems(items.map(i => {
+      if (i.id !== itemId) return i;
+      
+      const nuevasOpciones = i.opciones_seleccionadas.map(op =>
+        op.opcion_id === opcionId ? { ...op, incremento_precio: nuevoValor } : op
+      );
+      
+      const nuevosIncrementos = nuevasOpciones.reduce((sum, op) => sum + op.incremento_precio, 0);
+      const nuevoSubtotal = i.precio_unitario + nuevosIncrementos;
+      
+      return {
+        ...i,
+        opciones_seleccionadas: nuevasOpciones,
+        subtotal: nuevoSubtotal,
+        precio_total_item: nuevoSubtotal - i.descuento_aplicado,
+      };
+    }));
+  };
+
+  // Remove optional config from item
+  const handleRemoveOpcionalFromItem = (itemId: string, opcionId: string) => {
+    setItems(items.map(i => {
+      if (i.id !== itemId) return i;
+      
+      const nuevasOpciones = i.opciones_seleccionadas.filter(op => op.opcion_id !== opcionId);
+      const nuevosIncrementos = nuevasOpciones.reduce((sum, op) => sum + op.incremento_precio, 0);
+      const nuevoSubtotal = i.precio_unitario + nuevosIncrementos;
+      
+      return {
+        ...i,
+        opciones_seleccionadas: nuevasOpciones,
+        subtotal: nuevoSubtotal,
+        precio_total_item: nuevoSubtotal - i.descuento_aplicado,
+      };
+    }));
   };
 
   // Submit form
@@ -1125,31 +1218,73 @@ export function CotizacionFormView() {
                       </Button>
                     </div>
 
-                    {/* Selected options badges */}
+                    {/* Selected options badges - editable */}
                     {item.opciones_seleccionadas.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 pl-5">
+                      <div className="pl-5 space-y-1.5">
                         {item.opciones_seleccionadas.map((op, i) => (
-                          <Badge
+                          <div
                             key={`${op.opcion_id}-${op.valor_id}-${i}`}
-                            variant="outline"
-                            className="text-[10px] border-viv-beige"
+                            className="flex items-center gap-2"
                           >
-                            {op.opcion_nombre}: {op.valor_nombre}
-                            {op.incremento_precio > 0 && (
-                              <span className="ml-1 text-viv-sage-dark font-semibold">
-                                +{formatPrice(op.incremento_precio)}
-                              </span>
-                            )}
-                          </Badge>
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] border-viv-beige flex-shrink-0"
+                            >
+                              {op.opcion_nombre}
+                            </Badge>
+                            <Input
+                              type="number"
+                              value={op.incremento_precio}
+                              onChange={(e) => handleUpdateOpcionalValue(item.id, op.opcion_id, Number(e.target.value) || 0)}
+                              className="h-6 w-24 text-xs"
+                            />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5"
+                              onClick={() => handleRemoveOpcionalFromItem(item.id, op.opcion_id)}
+                            >
+                              <X size={10} />
+                            </Button>
+                          </div>
                         ))}
                       </div>
                     )}
 
-                    {/* Price breakdown per item */}
+                    {/* Add optional config selector */}
+                    <div className="pl-5">
+                      <Select
+                        value=""
+                        onValueChange={(val) => {
+                          const opcional = OPCIONALES_PREDEFINIDOS.find(o => o.id === val);
+                          if (opcional) {
+                            handleAddOpcionalToItem(item.id, opcional);
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="h-7 text-xs border-dashed">
+                          <SelectValue placeholder="+ Agregar opcional..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {OPCIONALES_PREDEFINIDOS.map(op => (
+                            <SelectItem key={op.id} value={op.id}>
+                              {op.nombre} ({formatPrice(op.valor)})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Price breakdown per item - editable base price */}
                     <div className="pl-5 space-y-1">
                       <div className="flex items-center justify-between text-[11px]">
                         <span className="text-muted-foreground">Precio base</span>
-                        <span className="font-medium">{formatPrice(item.precio_unitario)}</span>
+                        <Input
+                          type="number"
+                          value={item.precio_unitario}
+                          onChange={(e) => handleUpdatePrecioBase(item.id, Number(e.target.value) || 0)}
+                          className="h-6 w-28 text-xs text-right"
+                        />
                       </div>
                       {itemIncrementos > 0 && (
                         <div className="flex items-center justify-between text-[11px]">
