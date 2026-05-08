@@ -86,6 +86,8 @@ export function CotizacionFormView() {
   const saveCotizacionToSupabase = useCotizacionesStore(s => s.saveCotizacionToSupabase);
 
   const productos = useCatalogoStore(s => s.productos);
+  const categorias = useCatalogoStore(s => s.categorias);
+  const subcategorias = useCatalogoStore(s => s.subcategorias);
   const getOpcionesByProducto = useCatalogoStore(s => s.getOpcionesByProducto);
   const getValoresByOpcion = useCatalogoStore(s => s.getValoresByOpcion);
 
@@ -156,7 +158,10 @@ export function CotizacionFormView() {
     })) || []
   );
 
-  // Product selector state
+  // Product selector state - cascading selection
+  const [selectionStep, setSelectionStep] = useState<'categoria' | 'subcategoria' | 'producto'>('categoria');
+  const [selectedCategoriaId, setSelectedCategoriaId] = useState<string>('');
+  const [selectedSubcategoriaId, setSelectedSubcategoriaId] = useState<string>('');
   const [productSearch, setProductSearch] = useState('');
   const [selectedProductoId, setSelectedProductoId] = useState<string>('');
   const [optionSelections, setOptionSelections] = useState<Record<string, string>>({});
@@ -242,14 +247,46 @@ export function CotizacionFormView() {
     );
   };
 
-  // Filter products for search
+  // Filter subcategorias by selected categoria
+  const filteredSubcategorias = useMemo(() => {
+    if (!selectedCategoriaId) return [];
+    return subcategorias.filter(s => s.categoria_id === selectedCategoriaId && s.activa);
+  }, [subcategorias, selectedCategoriaId]);
+
+  // Filter products by selected subcategoria
   const filteredProductos = useMemo(() => {
-    if (!productSearch.trim()) return productos.filter(p => p.activo);
-    const term = productSearch.toLowerCase();
-    return productos.filter(
-      p => p.activo && (p.nombre.toLowerCase().includes(term) || p.codigo.toLowerCase().includes(term))
-    );
-  }, [productos, productSearch]);
+    let result = productos.filter(p => p.activo);
+    
+    // Filter by subcategoria if selected
+    if (selectedSubcategoriaId) {
+      result = result.filter(p => p.subcategoria_id === selectedSubcategoriaId);
+    } else if (selectedCategoriaId) {
+      // If only categoria selected, show products from that categoria (without subcategoria or matching)
+      result = result.filter(p => p.categoria_id === selectedCategoriaId);
+    }
+    
+    // Apply search filter
+    if (productSearch.trim()) {
+      const term = productSearch.toLowerCase();
+      result = result.filter(
+        p => p.nombre.toLowerCase().includes(term) || p.codigo.toLowerCase().includes(term)
+      );
+    }
+    
+    return result;
+  }, [productos, selectedCategoriaId, selectedSubcategoriaId, productSearch]);
+
+  // Get selected categoria name
+  const selectedCategoria = useMemo(
+    () => categorias.find(c => c.id === selectedCategoriaId),
+    [categorias, selectedCategoriaId]
+  );
+
+  // Get selected subcategoria name
+  const selectedSubcategoria = useMemo(
+    () => subcategorias.find(s => s.id === selectedSubcategoriaId),
+    [subcategorias, selectedSubcategoriaId]
+  );
 
   // Currently selected product
   const selectedProducto = useMemo(
@@ -362,12 +399,47 @@ export function CotizacionFormView() {
     return { baseTotal, incrementos, descuento, subtotal, total: subtotal };
   }, [items]);
 
+  // Handle selecting a categoria
+  const handleSelectCategoria = (categoriaId: string) => {
+    setSelectedCategoriaId(categoriaId);
+    setSelectedSubcategoriaId('');
+    setSelectionStep('subcategoria');
+  };
+
+  // Handle selecting a subcategoria
+  const handleSelectSubcategoria = (subcategoriaId: string) => {
+    setSelectedSubcategoriaId(subcategoriaId);
+    setSelectionStep('producto');
+  };
+
   // Handle selecting a product
   const handleSelectProduct = (productoId: string) => {
     setSelectedProductoId(productoId);
     setOptionSelections({});
     setCheckboxSelections({});
     setProductSearch('');
+  };
+
+  // Handle going back in selection
+  const handleBackStep = () => {
+    if (selectionStep === 'producto') {
+      setSelectedSubcategoriaId('');
+      setSelectionStep('subcategoria');
+    } else if (selectionStep === 'subcategoria') {
+      setSelectedCategoriaId('');
+      setSelectionStep('categoria');
+    }
+  };
+
+  // Reset product selector
+  const resetProductSelector = () => {
+    setSelectionStep('categoria');
+    setSelectedCategoriaId('');
+    setSelectedSubcategoriaId('');
+    setSelectedProductoId('');
+    setProductSearch('');
+    setOptionSelections({});
+    setCheckboxSelections({});
   };
 
   // Handle option value change for select type
@@ -631,83 +703,40 @@ export function CotizacionFormView() {
         </CardContent>
       </Card>
 
-      {/* Product Selector */}
+      {/* Product Selector - Cascading: Categoria → Subcategoria → Producto */}
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-3">
-          <CardTitle
-            className="text-base"
-            style={{ fontFamily: 'var(--font-league-spartan)' }}
-          >
-            Agregar Producto
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle
+              className="text-base"
+              style={{ fontFamily: 'var(--font-league-spartan)' }}
+            >
+              Agregar Producto
+            </CardTitle>
+            {(selectedProductoId || selectedCategoriaId) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSelectionStep('categoria');
+                  setSelectedCategoriaId('');
+                  setSelectedSubcategoriaId('');
+                  setSelectedProductoId('');
+                  setProductSearch('');
+                  setOptionSelections({});
+                  setCheckboxSelections({});
+                }}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X size={14} className="mr-1" />
+                Cancelar
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Product Search & Select */}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold uppercase tracking-wider">
-              Producto
-            </Label>
-            <div className="relative">
-              <Search
-                size={16}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-              />
-              <Input
-                placeholder="Buscar producto..."
-                value={productSearch}
-                onChange={e => setProductSearch(e.target.value)}
-                className="pl-9 h-10"
-              />
-            </div>
-          </div>
-
-          {/* Product list for selection */}
-          {!selectedProductoId && (
-            <div className="max-h-48 overflow-y-auto rounded-lg border border-border/50 divide-y divide-border/30">
-              {filteredProductos.length === 0 ? (
-                <div className="p-4 text-center text-sm text-muted-foreground">
-                  No se encontraron productos
-                </div>
-              ) : (
-                filteredProductos.map(producto => (
-                  <button
-                    key={producto.id}
-                    onClick={() => handleSelectProduct(producto.id)}
-                    className="w-full flex items-center gap-3 p-3 hover:bg-viv-sage/5 transition-colors text-left"
-                  >
-                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-viv-sage/10 to-viv-peach/10 flex items-center justify-center flex-shrink-0">
-                      <span className="text-lg">🧸</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold truncate">{producto.nombre}</p>
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                        {producto.codigo}
-                      </p>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      {producto.precio_descuento > 0 && producto.precio_descuento < producto.precio_base ? (
-                        <>
-                          <p className="text-[10px] text-muted-foreground line-through">
-                            {formatPrice(producto.precio_base)}
-                          </p>
-                          <p className="text-sm font-bold text-viv-sage-dark">
-                            {formatPrice(producto.precio_descuento)}
-                          </p>
-                        </>
-                      ) : (
-                        <p className="text-sm font-bold text-viv-sage-dark">
-                          {formatPrice(producto.precio_base)}
-                        </p>
-                      )}
-                    </div>
-                  </button>
-                ))
-              )}
-            </div>
-          )}
-
-          {/* Selected product with options */}
-          {selectedProducto && (
+          {/* Selected Product with options */}
+          {selectedProducto ? (
             <div className="rounded-xl border border-viv-sage/20 bg-viv-sage/5 p-4 space-y-4">
               {/* Product name with deselect */}
               <div className="flex items-center justify-between">
@@ -751,7 +780,6 @@ export function CotizacionFormView() {
                     const valores = getValoresByOpcion(opcion.id).filter(v => v.activo);
 
                     if (opcion.tipo === 'checkbox') {
-                      // Checkbox option: toggle switch
                       const isChecked = checkboxSelections[opcion.id] || false;
                       const checkboxValor = valores.length > 0 ? valores[0] : null;
                       return (
@@ -767,7 +795,7 @@ export function CotizacionFormView() {
                               <p className="text-sm font-medium">{opcion.nombre}</p>
                               {checkboxValor && checkboxValor.incremento_precio > 0 && (
                                 <p className="text-[10px] text-muted-foreground">
-                                                  +{formatPrice(checkboxValor.incremento_precio)}
+                                  +{formatPrice(checkboxValor.incremento_precio)}
                                 </p>
                               )}
                             </div>
@@ -794,7 +822,6 @@ export function CotizacionFormView() {
                       );
                     }
 
-                    // Select option: dropdown
                     return (
                       <div key={opcion.id} className="space-y-1.5">
                         <Label className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5">
@@ -886,6 +913,170 @@ export function CotizacionFormView() {
                 Agregar al presupuesto
               </Button>
             </div>
+          ) : (
+            <>
+              {/* Breadcrumb navigation */}
+              <div className="flex items-center gap-1 text-sm text-muted-foreground flex-wrap">
+                {selectionStep !== 'categoria' && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleBackStep}
+                    className="h-7 px-2 text-viv-sage-dark hover:bg-viv-sage/10"
+                  >
+                    <ArrowLeft size={14} className="mr-1" />
+                    Atrás
+                  </Button>
+                )}
+                <span className={selectionStep === 'categoria' ? 'text-foreground font-medium' : ''}>
+                  Categorías
+                </span>
+                {selectedCategoria && (
+                  <>
+                    <span className="mx-1">›</span>
+                    <span className={selectionStep === 'subcategoria' ? 'text-foreground font-medium' : ''}>
+                      {selectedCategoria.nombre}
+                    </span>
+                  </>
+                )}
+                {selectedSubcategoria && (
+                  <>
+                    <span className="mx-1">›</span>
+                    <span className="text-foreground font-medium">
+                      {selectedSubcategoria.nombre}
+                    </span>
+                  </>
+                )}
+              </div>
+
+              {/* Step: Categorias */}
+              {selectionStep === 'categoria' && (
+                <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground">
+                    Selecciona una categoría para ver sus productos:
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {categorias.filter(c => c.activa).map(categoria => (
+                      <button
+                        key={categoria.id}
+                        onClick={() => handleSelectCategoria(categoria.id)}
+                        className="flex flex-col items-center justify-center p-4 rounded-xl border border-border/50 hover:border-viv-sage/50 hover:bg-viv-sage/5 transition-all text-center gap-2"
+                      >
+                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-viv-sage/10 to-viv-peach/10 flex items-center justify-center">
+                          <span className="text-lg">{categoria.icono || '📁'}</span>
+                        </div>
+                        <span className="text-sm font-medium">{categoria.nombre}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {categorias.filter(c => c.activa).length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p className="text-sm">No hay categorías creadas</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Step: Subcategorias */}
+              {selectionStep === 'subcategoria' && (
+                <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground">
+                    Selecciona una subcategoría de <strong>{selectedCategoria?.nombre}</strong>:
+                  </p>
+                  {filteredSubcategorias.length > 0 ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {filteredSubcategorias.map(sub => (
+                        <button
+                          key={sub.id}
+                          onClick={() => handleSelectSubcategoria(sub.id)}
+                          className="flex items-center justify-center p-3 rounded-xl border border-border/50 hover:border-viv-sage/50 hover:bg-viv-sage/5 transition-all text-center gap-2"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-viv-sage/10 to-viv-peach/10 flex items-center justify-center">
+                            <span className="text-base">📦</span>
+                          </div>
+                          <span className="text-sm font-medium">{sub.nombre}</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <p className="text-sm text-muted-foreground">
+                        No hay subcategorías para esta categoría. Puedes ver los productos directamente:
+                      </p>
+                      <Button
+                        variant="outline"
+                        onClick={() => setSelectionStep('producto')}
+                        className="border-viv-sage text-viv-sage-dark hover:bg-viv-sage/10"
+                      >
+                        Ver productos de {selectedCategoria?.nombre}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Step: Productos */}
+              {selectionStep === 'producto' && (
+                <>
+                  {/* Product search */}
+                  <div className="relative">
+                    <Search
+                      size={16}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                    />
+                    <Input
+                      placeholder="Buscar producto..."
+                      value={productSearch}
+                      onChange={e => setProductSearch(e.target.value)}
+                      className="pl-9 h-10"
+                    />
+                  </div>
+
+                  {/* Product list */}
+                  <div className="max-h-64 overflow-y-auto rounded-lg border border-border/50 divide-y divide-border/30">
+                    {filteredProductos.length === 0 ? (
+                      <div className="p-4 text-center text-sm text-muted-foreground">
+                        No se encontraron productos
+                      </div>
+                    ) : (
+                      filteredProductos.map(producto => (
+                        <button
+                          key={producto.id}
+                          onClick={() => handleSelectProduct(producto.id)}
+                          className="w-full flex items-center gap-3 p-3 hover:bg-viv-sage/5 transition-colors text-left"
+                        >
+                          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-viv-sage/10 to-viv-peach/10 flex items-center justify-center flex-shrink-0">
+                            <span className="text-lg">🧸</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold truncate">{producto.nombre}</p>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                              {producto.codigo}
+                            </p>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            {producto.precio_descuento > 0 && producto.precio_descuento < producto.precio_base ? (
+                              <>
+                                <p className="text-[10px] text-muted-foreground line-through">
+                                  {formatPrice(producto.precio_base)}
+                                </p>
+                                <p className="text-sm font-bold text-viv-sage-dark">
+                                  {formatPrice(producto.precio_descuento)}
+                                </p>
+                              </>
+                            ) : (
+                              <p className="text-sm font-bold text-viv-sage-dark">
+                                {formatPrice(producto.precio_base)}
+                              </p>
+                            )}
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

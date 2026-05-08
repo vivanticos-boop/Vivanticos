@@ -157,3 +157,30 @@ Stage Summary:
 - New section placed between "Items List" (productos agregados) and "Notas" in the quotation form
 - Allows creating/editing product options directly from the quotation form
 - Build passes successfully
+---
+Task ID: 3
+Agent: Main
+Task: Fix full data sync on Update button
+
+Work Log:
+- Identified issue: Update button only refreshed Service Worker, didn't sync data from Supabase
+- Modified header.tsx handleSync to:
+  - Load ALL data from Supabase in parallel:
+    - Catálogo (productos, categorías, subcategorías, opciones)
+    - Usuarios (credenciales actualizadas)
+    - Clientes
+    - Cotizaciones
+    - Entregas
+  - Then check for SW update
+  - Show clear success/error messages
+- Modified login-view.tsx to:
+  - Load usuarios from Supabase on mount (ensures fresh credentials)
+  - Sync all data on Update button before SW update
+- Build verified successfully
+- Pushed to GitHub (commit 3448915)
+
+Stage Summary:
+- Fixed cross-device sync issue where mobile had updated data but PC kept old demo data
+- Update button now fully syncs all stores from Supabase
+- Login screen loads fresh credentials from Supabase automatically
+- New device can get all data by clicking Update button on login screen
