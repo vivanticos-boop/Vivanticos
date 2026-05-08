@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { formatPrice, generateId } from '@/lib/utils';
 import { toast } from 'sonner';
-import type { Cotizacion, CotizacionItem, ItemOpcionSeleccionada, ProductoOpcion, ProductoOpcionValor, TipoOpcionInput } from '@/types';
+import type { Cotizacion, CotizacionItem, ItemOpcionSeleccionada, ProductoOpcion, ProductoOpcionValor, TipoOpcionInput, OpcionalPredefinido } from '@/types';
 import { TIPO_PRODUCTO_LABELS } from '@/types';
 
 // Local form item type
@@ -64,14 +64,6 @@ const OPCION_TIPO_ICONS: Record<TipoOpcionInput, React.ReactNode> = {
   checkbox: <Tag size={14} />,
 };
 
-// Opcionales predefinidos (configuraciones extra)
-const OPCIONALES_PREDEFINIDOS = [
-  { id: 'cuna-120', nombre: 'Aumento cuna 1.20x1.90', valor: 300000, categoria: 'cuna' },
-  { id: 'cuna-140', nombre: 'Aumento cuna 1.40x1.90', valor: 600000, categoria: 'cuna' },
-  { id: 'colchon-120', nombre: 'Aumento colchon 1.20x1.90', valor: 100000, categoria: 'colchon' },
-  { id: 'colchon-140', nombre: 'Aumento colchon 1.40x1.90', valor: 200000, categoria: 'colchon' },
-] as const;
-
 // Icon helper based on option name
 const getOpcionIcon = (nombre: string): React.ReactNode => {
   const lower = nombre.toLowerCase();
@@ -96,6 +88,7 @@ export function CotizacionFormView() {
   const productos = useCatalogoStore(s => s.productos);
   const categorias = useCatalogoStore(s => s.categorias);
   const subcategorias = useCatalogoStore(s => s.subcategorias);
+  const opcionalesPredefinidos = useCatalogoStore(s => s.opcionalesPredefinidos);
   const getOpcionesByProducto = useCatalogoStore(s => s.getOpcionesByProducto);
   const getValoresByOpcion = useCatalogoStore(s => s.getValoresByOpcion);
 
@@ -529,7 +522,7 @@ export function CotizacionFormView() {
   };
 
   // Add optional config to item
-  const handleAddOpcionalToItem = (itemId: string, opcional: typeof OPCIONALES_PREDEFINIDOS[0]) => {
+  const handleAddOpcionalToItem = (itemId: string, opcional: OpcionalPredefinido) => {
     setItems(items.map(i => {
       if (i.id !== itemId) return i;
       // Check if already exists
@@ -1256,7 +1249,7 @@ export function CotizacionFormView() {
                       <Select
                         value=""
                         onValueChange={(val) => {
-                          const opcional = OPCIONALES_PREDEFINIDOS.find(o => o.id === val);
+                          const opcional = opcionalesPredefinidos.find(o => o.id === val);
                           if (opcional) {
                             handleAddOpcionalToItem(item.id, opcional);
                           }
@@ -1266,7 +1259,7 @@ export function CotizacionFormView() {
                           <SelectValue placeholder="+ Agregar opcional..." />
                         </SelectTrigger>
                         <SelectContent>
-                          {OPCIONALES_PREDEFINIDOS.map(op => (
+                          {opcionalesPredefinidos.filter(o => o.activo).map(op => (
                             <SelectItem key={op.id} value={op.id}>
                               {op.nombre} ({formatPrice(op.valor)})
                             </SelectItem>

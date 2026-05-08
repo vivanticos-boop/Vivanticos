@@ -172,6 +172,16 @@ export interface Cliente {
   actualizado_en: string;
 }
 
+// --- Opcionales Predefinidos ---
+export interface OpcionalPredefinido {
+  id: string;
+  nombre: string;
+  valor: number;
+  categoria: string; // 'cuna' | 'colchon'
+  activo: boolean;
+  orden: number;
+}
+
 // --- Vistas de navegación ---
 export type AppView =
   | 'dashboard'

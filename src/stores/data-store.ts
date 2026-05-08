@@ -4,7 +4,7 @@
 // ==========================================
 
 import { create } from 'zustand';
-import type { Categoria, Subcategoria, Producto, ProductoOpcion, ProductoOpcionValor, TipoProducto, TipoOpcionInput } from '@/types';
+import type { Categoria, Subcategoria, Producto, ProductoOpcion, ProductoOpcionValor, TipoProducto, TipoOpcionInput, OpcionalPredefinido } from '@/types';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
 // --- Helper: Check if ID is a valid UUID ---
@@ -58,6 +58,7 @@ interface CatalogoState {
   productos: Producto[];
   opciones: ProductoOpcion[];
   opcionValores: ProductoOpcionValor[];
+  opcionalesPredefinidos: OpcionalPredefinido[];
   searchTerm: string;
   filtroCategoria: string | null;
   filtroSubcategoria: string | null;
@@ -98,6 +99,7 @@ export const useCatalogoStore = create<CatalogoState>((set, get) => {
   productos: stored?.productos || [],
   opciones: stored?.opciones || [],
   opcionValores: stored?.opcionValores || [],
+  opcionalesPredefinidos: [],
   searchTerm: '',
   filtroCategoria: null,
   filtroSubcategoria: null,
@@ -184,12 +186,13 @@ export const useCatalogoStore = create<CatalogoState>((set, get) => {
 
     try {
       // Cargar todas las tablas en paralelo
-      const [catRes, subRes, prodRes, opRes, valRes] = await Promise.all([
+      const [catRes, subRes, prodRes, opRes, valRes, opcRes] = await Promise.all([
         supabase.from('categorias').select('*').order('orden'),
         supabase.from('subcategorias').select('*').order('orden'),
         supabase.from('productos').select('*').order('nombre'),
         supabase.from('producto_opciones').select('*').order('orden'),
         supabase.from('producto_opcion_valores').select('*'),
+        supabase.from('opcionales_predefinidos').select('*').order('orden'),
       ]);
 
       if (catRes.error) throw catRes.error;
@@ -197,6 +200,7 @@ export const useCatalogoStore = create<CatalogoState>((set, get) => {
       if (prodRes.error) throw prodRes.error;
       if (opRes.error) throw opRes.error;
       if (valRes.error) throw valRes.error;
+      // opcRes.error no lanzamos error porque la tabla puede no existir aún
 
       // Mapear datos de Supabase al formato de la app
       const categorias: Categoria[] = (catRes.data || []).map((c: any) => ({
@@ -251,6 +255,16 @@ export const useCatalogoStore = create<CatalogoState>((set, get) => {
         nombre: v.nombre,
         incremento_precio: v.incremento_precio || v.precio_incremento || 0,
         activo: v.activo ?? true,
+      }));
+
+      // Opcionales predefinidos
+      const opcionalesPredefinidos: OpcionalPredefinido[] = (opcRes.data || []).map((o: any) => ({
+        id: o.id,
+        nombre: o.nombre,
+        valor: o.valor || 0,
+        categoria: o.categoria || '',
+        activo: o.activo ?? true,
+        orden: o.orden || 0,
       }));
 
       // Obtener datos locales actuales
@@ -435,6 +449,7 @@ export const useCatalogoStore = create<CatalogoState>((set, get) => {
         productos: finalProductos,
         opciones: finalOpciones,
         opcionValores: finalOpcionValores,
+        opcionalesPredefinidos: opcionalesPredefinidos,
         isLoaded: true,
         isLoading: false,
       });
