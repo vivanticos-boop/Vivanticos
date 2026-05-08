@@ -1,7 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAppStore } from '@/stores/app-store';
+import { useUsuariosStore } from '@/stores/usuarios-store';
+import { useCatalogoStore } from '@/stores/data-store';
+import { useCotizacionesStore } from '@/stores/cotizaciones-store';
+import { useEntregasStore } from '@/stores/entregas-store';
+import { useClientesStore } from '@/stores/clientes-store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,6 +24,18 @@ export function LoginView() {
   const [syncing, setSyncing] = useState(false);
   const { checkForUpdate, applyUpdate, hasUpdate, isUpdating } = useSwUpdate();
 
+  // Get loadFromSupabase functions
+  const loadUsuarios = useUsuariosStore(s => s.loadFromSupabase);
+  const loadCatalogo = useCatalogoStore(s => s.loadFromSupabase);
+  const loadCotizaciones = useCotizacionesStore(s => s.loadFromSupabase);
+  const loadEntregas = useEntregasStore(s => s.loadFromSupabase);
+  const loadClientes = useClientesStore(s => s.loadFromSupabase);
+
+  // Load users from Supabase on mount (for fresh credentials)
+  useEffect(() => {
+    loadUsuarios();
+  }, [loadUsuarios]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -33,14 +50,35 @@ export function LoginView() {
 
   const handleSync = async () => {
     setSyncing(true);
-    await checkForUpdate();
-    await new Promise(r => setTimeout(r, 1000));
-    if (hasUpdate) {
-      toast.success('Actualización encontrada. Actualizando...');
-      await applyUpdate();
-    } else {
-      toast.success('Estás en la versión más reciente');
+    toast.info('Sincronizando datos...');
+    
+    try {
+      // Sync ALL data from Supabase
+      await Promise.all([
+        loadUsuarios(),
+        loadCatalogo(),
+        loadClientes(),
+        loadCotizaciones(),
+        loadEntregas(),
+      ]);
+
+      // Check for SW update
+      await checkForUpdate();
+      await new Promise(r => setTimeout(r, 500));
+      
+      if (hasUpdate) {
+        toast.success('¡Datos sincronizados! Actualizando app...');
+        await applyUpdate();
+      } else {
+        toast.success('¡Sincronización completa!', {
+          description: 'Usuarios, catálogo y datos actualizados'
+        });
+      }
+    } catch (error) {
+      console.error('Error en sincronización:', error);
+      toast.error('Error al sincronizar algunos datos');
     }
+    
     setSyncing(false);
   };
 

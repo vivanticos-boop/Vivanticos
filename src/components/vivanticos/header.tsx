@@ -1,6 +1,11 @@
 'use client';
 
 import { useAppStore } from '@/stores/app-store';
+import { useCatalogoStore } from '@/stores/data-store';
+import { useCotizacionesStore } from '@/stores/cotizaciones-store';
+import { useEntregasStore } from '@/stores/entregas-store';
+import { useUsuariosStore } from '@/stores/usuarios-store';
+import { useClientesStore } from '@/stores/clientes-store';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -23,17 +28,45 @@ export function Header() {
   const lastSync = useAppStore(s => s.lastSync);
   const { checkForUpdate, applyUpdate, hasUpdate, isUpdating } = useSwUpdate();
 
+  // Get loadFromSupabase functions from all stores
+  const loadCatalogo = useCatalogoStore(s => s.loadFromSupabase);
+  const loadCotizaciones = useCotizacionesStore(s => s.loadFromSupabase);
+  const loadEntregas = useEntregasStore(s => s.loadFromSupabase);
+  const loadUsuarios = useUsuariosStore(s => s.loadFromSupabase);
+  const loadClientes = useClientesStore(s => s.loadFromSupabase);
+
   const handleSync = async () => {
     useAppStore.getState().setIsLoading(true);
-    await checkForUpdate();
-    await new Promise(r => setTimeout(r, 800));
-    if (hasUpdate) {
-      toast.success('Actualización encontrada. Actualizando...');
-      await applyUpdate();
-    } else {
-      useAppStore.getState().setLastSync(new Date().toISOString());
-      toast.success('Sincronizado. Versión más reciente');
+    toast.info('Sincronizando datos...');
+    
+    try {
+      // 1. Sync ALL data from Supabase first
+      await Promise.all([
+        loadCatalogo(),
+        loadUsuarios(),
+        loadClientes(),
+        loadCotizaciones(),
+        loadEntregas(),
+      ]);
+
+      // 2. Check for SW update
+      await checkForUpdate();
+      await new Promise(r => setTimeout(r, 500));
+      
+      if (hasUpdate) {
+        toast.success('¡Datos sincronizados! Actualizando app...');
+        await applyUpdate();
+      } else {
+        useAppStore.getState().setLastSync(new Date().toISOString());
+        toast.success('¡Sincronización completa!', {
+          description: 'Catálogo, usuarios, cotizaciones y entregas actualizados'
+        });
+      }
+    } catch (error) {
+      console.error('Error en sincronización:', error);
+      toast.error('Error al sincronizar algunos datos');
     }
+    
     useAppStore.getState().setIsLoading(false);
   };
 
