@@ -16,7 +16,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import {
-  ArrowLeft, Plus, Trash2, Save, Search, ShoppingCart, X, Ruler, Bed, Layers, Tag, Check,
+  ArrowLeft, Plus, Trash2, Save, Search, ShoppingCart, X, Ruler, Bed, Layers, Tag, Check, GripVertical,
 } from 'lucide-react';
 import { formatPrice, generateId } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -36,6 +36,33 @@ interface FormItem {
   precio_total_item: number; // subtotal - descuento_aplicado
   descuento_aplicado: number;
 }
+
+// Local type for managing option + values together in the form
+interface FormOpcion {
+  id: string;
+  tipo: TipoOpcionInput;
+  nombre: string;
+  requerida: boolean;
+  orden: number;
+  valores: FormOpcionValor[];
+}
+
+interface FormOpcionValor {
+  id: string;
+  nombre: string;
+  incremento_precio: number;
+  activo: boolean;
+}
+
+const OPCION_TIPO_LABELS: Record<TipoOpcionInput, string> = {
+  select: 'Selección',
+  checkbox: 'Casilla',
+};
+
+const OPCION_TIPO_ICONS: Record<TipoOpcionInput, React.ReactNode> = {
+  select: <Tag size={14} />,
+  checkbox: <Tag size={14} />,
+};
 
 // Icon helper based on option name
 const getOpcionIcon = (nombre: string): React.ReactNode => {
@@ -135,6 +162,85 @@ export function CotizacionFormView() {
   const [optionSelections, setOptionSelections] = useState<Record<string, string>>({});
   const [checkboxSelections, setCheckboxSelections] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Form opciones state (for managing product options in cotizacion form)
+  const [formOpciones, setFormOpciones] = useState<FormOpcion[]>([]);
+
+  // --- Option management functions ---
+  const addOpcion = () => {
+    const newOpcion: FormOpcion = {
+      id: generateId(),
+      tipo: 'select' as TipoOpcionInput,
+      nombre: '',
+      requerida: false,
+      orden: formOpciones.length + 1,
+      valores: [],
+    };
+    setFormOpciones([...formOpciones, newOpcion]);
+  };
+
+  const removeOpcion = (opcionId: string) => {
+    setFormOpciones(formOpciones.filter(o => o.id !== opcionId));
+  };
+
+  const updateOpcion = (opcionId: string, field: keyof FormOpcion, value: unknown) => {
+    setFormOpciones(
+      formOpciones.map(o =>
+        o.id === opcionId ? { ...o, [field]: value } : o
+      )
+    );
+  };
+
+  const addValorToOpcion = (opcionId: string) => {
+    setFormOpciones(
+      formOpciones.map(o => {
+        if (o.id !== opcionId) return o;
+        return {
+          ...o,
+          valores: [
+            ...o.valores,
+            {
+              id: generateId(),
+              nombre: '',
+              incremento_precio: 0,
+              activo: true,
+            },
+          ],
+        };
+      })
+    );
+  };
+
+  const removeValorFromOpcion = (opcionId: string, valorId: string) => {
+    setFormOpciones(
+      formOpciones.map(o => {
+        if (o.id !== opcionId) return o;
+        return {
+          ...o,
+          valores: o.valores.filter(v => v.id !== valorId),
+        };
+      })
+    );
+  };
+
+  const updateValorInOpcion = (
+    opcionId: string,
+    valorId: string,
+    field: keyof FormOpcionValor,
+    value: unknown
+  ) => {
+    setFormOpciones(
+      formOpciones.map(o => {
+        if (o.id !== opcionId) return o;
+        return {
+          ...o,
+          valores: o.valores.map(v =>
+            v.id === valorId ? { ...v, [field]: value } : v
+          ),
+        };
+      })
+    );
+  };
 
   // Filter products for search
   const filteredProductos = useMemo(() => {
@@ -960,6 +1066,222 @@ export function CotizacionFormView() {
           </CardContent>
         </Card>
       )}
+
+      {/* Configuraciones / Opciones */}
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle
+              className="text-base"
+              style={{ fontFamily: 'var(--font-league-spartan)' }}
+            >
+              Configuraciones / Opciones
+            </CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-viv-sage text-viv-sage-dark hover:bg-viv-sage/10"
+              onClick={addOpcion}
+            >
+              <Plus size={14} className="mr-1" />
+              Agregar opción
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {formOpciones.length === 0 ? (
+            <div className="text-center py-8">
+              <div className="mx-auto w-12 h-12 rounded-xl bg-viv-sage/10 flex items-center justify-center mb-3">
+                <Tag size={20} className="text-viv-sage/50" />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                No hay opciones configuradas
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Agrega opciones como selección o casilla de verificación
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4 max-h-96 overflow-y-auto pr-1">
+              {formOpciones.map((opcion, opIndex) => (
+                <div
+                  key={opcion.id}
+                  className="rounded-xl border border-border/60 bg-muted/20 p-4 space-y-3"
+                >
+                  {/* Option header */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <GripVertical
+                      size={16}
+                      className="text-muted-foreground/50 flex-shrink-0"
+                    />
+                    <span className="text-xs text-muted-foreground font-medium">
+                      #{opIndex + 1}
+                    </span>
+
+                    {/* Option type select */}
+                    <Select
+                      value={opcion.tipo}
+                      onValueChange={(v: TipoOpcionInput) =>
+                        updateOpcion(opcion.id, 'tipo', v)
+                      }
+                    >
+                      <SelectTrigger className="h-8 w-[130px] text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(OPCION_TIPO_LABELS).map(([key, label]) => (
+                          <SelectItem key={key} value={key}>
+                            <span className="flex items-center gap-1.5">
+                              {OPCION_TIPO_ICONS[key as TipoOpcionInput]}
+                              {label}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    {/* Option name */}
+                    <Input
+                      placeholder="Nombre de la opción"
+                      value={opcion.nombre}
+                      onChange={e =>
+                        updateOpcion(opcion.id, 'nombre', e.target.value)
+                      }
+                      className="h-8 flex-1 min-w-[120px] text-sm"
+                    />
+
+                    {/* Required toggle */}
+                    <button
+                      onClick={() =>
+                        updateOpcion(opcion.id, 'requerida', !opcion.requerida)
+                      }
+                      className={`px-2.5 py-1 rounded-md text-[10px] font-semibold uppercase tracking-wider transition-colors flex-shrink-0 ${
+                        opcion.requerida
+                          ? 'bg-viv-rose/15 text-viv-rose-dark'
+                          : 'bg-muted text-muted-foreground'
+                      }`}
+                    >
+                      {opcion.requerida ? 'Requerido' : 'Opcional'}
+                    </button>
+
+                    {/* Remove option */}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 flex-shrink-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => removeOpcion(opcion.id)}
+                      aria-label="Eliminar opción"
+                    >
+                      <Trash2 size={14} />
+                    </Button>
+                  </div>
+
+                  {/* Option icon + type badge */}
+                  <div className="flex items-center gap-2 pl-7">
+                    <Badge
+                      variant="secondary"
+                      className={`text-[10px] ${
+                        opcion.tipo === 'select'
+                          ? 'bg-viv-bluegrey/15 text-viv-bluegrey'
+                          : opcion.tipo === 'checkbox'
+                          ? 'bg-viv-sage/15 text-viv-sage-dark'
+                          : 'bg-viv-beige/15 text-viv-beige'
+                      }`}
+                    >
+                      {OPCION_TIPO_ICONS[opcion.tipo]}
+                      <span className="ml-1">{OPCION_TIPO_LABELS[opcion.tipo]}</span>
+                    </Badge>
+                  </div>
+
+                  <Separator />
+
+                  {/* Option values */}
+                  <div className="space-y-2 pl-7">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-muted-foreground font-medium">
+                        Valores ({opcion.valores.length})
+                      </p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs text-viv-sage-dark hover:text-viv-sage-dark hover:bg-viv-sage/10"
+                        onClick={() => addValorToOpcion(opcion.id)}
+                      >
+                        <Plus size={12} className="mr-1" />
+                        Agregar valor
+                      </Button>
+                    </div>
+
+                    {opcion.valores.length === 0 ? (
+                      <p className="text-xs text-muted-foreground/60 italic py-2">
+                        Sin valores. Agrega al menos un valor.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {opcion.valores.map((valor) => (
+                          <div
+                            key={valor.id}
+                            className="flex items-center gap-2 bg-background rounded-lg p-2"
+                          >
+                            <Input
+                              placeholder="Nombre del valor"
+                              value={valor.nombre}
+                              onChange={e =>
+                                updateValorInOpcion(
+                                  opcion.id,
+                                  valor.id,
+                                  'nombre',
+                                  e.target.value
+                                )
+                              }
+                              className="h-8 flex-1 min-w-0 text-sm"
+                            />
+                            <div className="relative w-28 sm:w-32 flex-shrink-0">
+                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+                                +$
+                              </span>
+                              <Input
+                                type="number"
+                                min="0"
+                                placeholder="0"
+                                value={
+                                  valor.incremento_precio > 0
+                                    ? valor.incremento_precio
+                                    : ''
+                                }
+                                onChange={e =>
+                                  updateValorInOpcion(
+                                    opcion.id,
+                                    valor.id,
+                                    'incremento_precio',
+                                    Number(e.target.value) || 0
+                                  )
+                                }
+                                className="h-8 pl-8 text-sm"
+                              />
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 flex-shrink-0 text-muted-foreground hover:text-destructive"
+                              onClick={() =>
+                                removeValorFromOpcion(opcion.id, valor.id)
+                              }
+                              aria-label="Eliminar valor"
+                            >
+                              <X size={14} />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Notas */}
       <Card className="border-0 shadow-sm">

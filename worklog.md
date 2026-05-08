@@ -133,3 +133,27 @@ Stage Summary:
 - PWA root cause: Mobile browsers cached the old SW file; added updateViaCache:none and no-cache headers
 - Key files changed: data-store.ts, sw.js, layout.tsx, next.config.ts, catalogo-view.tsx
 - Deploy: pushed to main branch, Vercel will auto-deploy
+
+---
+Task ID: 2
+Agent: Main
+Task: Move opciones/configuraciones from producto-form to cotizacion-form
+
+Work Log:
+- Cloned repo from GitHub vivanticos-boop/Vivanticos to /home/z/my-project/vivanticos-app
+- Analyzed producto-form-view.tsx to understand the opciones/configuraciones section structure
+- Analyzed cotizacion-form-view.tsx to identify insertion point between "Items List" and "Notas"
+- Added new imports: GripVertical from lucide-react
+- Added new types: FormOpcion, FormOpcionValor interfaces
+- Added new constants: OPCION_TIPO_LABELS, OPCION_TIPO_ICONS
+- Added new state: formOpciones with useState
+- Added option management functions: addOpcion, removeOpcion, updateOpcion, addValorToOpcion, removeValorFromOpcion, updateValorInOpcion
+- Inserted complete UI section for "Configuraciones / Opciones" in cotizacion-form-view.tsx
+- Removed the "Configuraciones / Opciones" UI section from producto-form-view.tsx
+- Build verified successfully
+
+Stage Summary:
+- Opciones/configuraciones UI moved from producto-form-view.tsx to cotizacion-form-view.tsx
+- New section placed between "Items List" (productos agregados) and "Notas" in the quotation form
+- Allows creating/editing product options directly from the quotation form
+- Build passes successfully
