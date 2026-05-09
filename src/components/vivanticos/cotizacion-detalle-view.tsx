@@ -386,7 +386,7 @@ export function CotizacionDetalleView() {
                   >
                     Resumen
                   </h3>
-                  <p className="text-[10px] text-muted-foreground">Vivanticos · Muebles y Decoración Infantil</p>
+                  <p className="text-[10px] text-muted-foreground">Vivanticos · Mobiliario Infantil</p>
                 </div>
               </div>
               <div className="flex items-center justify-between">
