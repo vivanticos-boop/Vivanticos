@@ -142,6 +142,16 @@ export function CotizacionFormView() {
   const [checkboxSelections, setCheckboxSelections] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // --- Vinyl calculator state ---
+  const [viniloAncho, setViniloAncho] = useState<number>(0);
+  const [viniloAlto, setViniloAlto] = useState<number>(0);
+  const [viniloParedCompleta, setViniloParedCompleta] = useState(true);
+  const [viniloAltoPintura, setViniloAltoPintura] = useState<number>(1.10);
+  const [viniloLlevaMoldura, setViniloLlevaMoldura] = useState(false);
+  const [viniloAltoVinilo, setViniloAltoVinilo] = useState<number>(0);
+  const [viniloConstante, setViniloConstante] = useState<number>(230000);
+  const [viniloCargoDiseno, setViniloCargoDiseno] = useState<number>(300000);
+
   // Quotation-level opcionales
   const [opcionalesCotizacion, setOpcionalesCotizacion] = useState<OpcionalCotizacion[]>([]);
 
@@ -216,6 +226,13 @@ export function CotizacionFormView() {
     [productos, selectedProductoId]
   );
 
+  // Check if selected product belongs to Vinilos category
+  const isViniloProduct = useMemo(() => {
+    if (!selectedProducto) return false;
+    const cat = categorias.find(c => c.id === selectedProducto.categoria_id);
+    return cat?.nombre?.toLowerCase().includes('vinilo') || false;
+  }, [selectedProducto, categorias]);
+
   // Options for selected product
   const selectedProductoOpciones = useMemo(
     () => selectedProductoId ? getOpcionesByProducto(selectedProductoId) : [],
@@ -226,12 +243,34 @@ export function CotizacionFormView() {
   const calculateItemPrice = useMemo(() => {
     if (!selectedProducto) return { base: 0, incrementos: 0, descuento: 0, total: 0 };
 
-    // Effective base price
+    // Vinilo products use wall area formula
+    if (isViniloProduct) {
+      if (viniloAncho <= 0 || viniloAlto <= 0) return { base: 0, incrementos: 0, descuento: 0, total: 0 };
+
+      if (viniloParedCompleta) {
+        // Full wall with vinyl
+        const area = viniloAncho * viniloAlto;
+        const base = Math.round(area * viniloConstante);
+        return { base, incrementos: 0, descuento: 0, total: base };
+      } else {
+        // Design: paint + (moldura) + vinyl
+        const altoVinilo = viniloAltoVinilo > 0 ? viniloAltoVinilo : (viniloAlto - viniloAltoPintura);
+        const areaVinilo = viniloAncho * altoVinilo;
+        const precioVinilo = Math.round(areaVinilo * viniloConstante);
+
+        // Design charge: $300,000 per 3m of wall width
+        const cargosDiseno = viniloLlevaMoldura ? Math.ceil(viniloAncho / 3) * viniloCargoDiseno : 0;
+
+        const total = precioVinilo + cargosDiseno;
+        return { base: precioVinilo, incrementos: cargosDiseno, descuento: 0, total };
+      }
+    }
+
+    // Standard products
     const base = selectedProducto.precio_descuento > 0 && selectedProducto.precio_descuento < selectedProducto.precio_base
       ? selectedProducto.precio_descuento
       : selectedProducto.precio_base;
 
-    // Calculate incrementos from selected options
     let incrementos = 0;
     for (const opcion of selectedProductoOpciones) {
       if (opcion.tipo === 'select') {
@@ -248,14 +287,11 @@ export function CotizacionFormView() {
       }
     }
 
-    // Descuento automático por tipo_producto
     const descuento = selectedProducto.descuento_base || 0;
-
-    // Total
     const total = base + incrementos - descuento;
 
     return { base, incrementos, descuento, total };
-  }, [selectedProducto, selectedProductoOpciones, optionSelections, checkboxSelections, getValoresByOpcion]);
+  }, [selectedProducto, isViniloProduct, viniloAncho, viniloAlto, viniloParedCompleta, viniloAltoPintura, viniloLlevaMoldura, viniloAltoVinilo, viniloConstante, viniloCargoDiseno, selectedProductoOpciones, optionSelections, checkboxSelections, getValoresByOpcion]);
 
   // Build opciones_seleccionadas for saving
   const buildOpcionesSeleccionadas = (): ItemOpcionSeleccionada[] => {
@@ -341,6 +377,20 @@ export function CotizacionFormView() {
     setOptionSelections({});
     setCheckboxSelections({});
     setProductSearch('');
+
+    // Reset vinyl calculator and set constant from product price
+    const prod = productos.find(p => p.id === productoId);
+    const cat = prod ? categorias.find(c => c.id === prod.categoria_id) : null;
+    if (cat?.nombre?.toLowerCase().includes('vinilo') && prod) {
+      setViniloAncho(0);
+      setViniloAlto(0);
+      setViniloParedCompleta(true);
+      setViniloAltoPintura(1.10);
+      setViniloLlevaMoldura(false);
+      setViniloAltoVinilo(0);
+      setViniloConstante(prod.precio_base);
+      setViniloCargoDiseno(300000);
+    }
   };
 
   // Handle going back in selection
@@ -382,6 +432,18 @@ export function CotizacionFormView() {
       return;
     }
 
+    // Validate vinilo dimensions
+    if (isViniloProduct) {
+      if (viniloAncho <= 0 || viniloAlto <= 0) {
+        toast.error('Ingresa las medidas de la pared');
+        return;
+      }
+      if (!viniloParedCompleta && viniloLlevaMoldura && viniloAltoVinilo <= 0 && viniloAlto - viniloAltoPintura <= 0) {
+        toast.error('El alto del vinilo debe ser mayor a 0');
+        return;
+      }
+    }
+
     // Check required options
     for (const op of selectedProductoOpciones) {
       if (op.requerida && op.tipo === 'select' && !optionSelections[op.id]) {
@@ -394,15 +456,44 @@ export function CotizacionFormView() {
     const opcionesSeleccionadas = buildOpcionesSeleccionadas();
     const configuracion = buildConfiguracion();
 
+    // Build vinyl-specific configuracion
+    const itemConfiguracion = isViniloProduct ? {
+      tipo: 'vinilo',
+      ancho: viniloAncho,
+      alto: viniloAlto,
+      paredCompleta: viniloParedCompleta,
+      altoPintura: viniloParedCompleta ? 0 : viniloAltoPintura,
+      llevaMoldura: viniloLlevaMoldura,
+      altoVinilo: viniloParedCompleta ? viniloAlto : (viniloAltoVinilo > 0 ? viniloAltoVinilo : viniloAlto - viniloAltoPintura),
+      constante: viniloConstante,
+      cargoDiseno: viniloCargoDiseno,
+      area: viniloAncho * (viniloParedCompleta ? viniloAlto : (viniloAltoVinilo > 0 ? viniloAltoVinilo : viniloAlto - viniloAltoPintura)),
+    } : configuracion;
+
+    // Build vinyl-specific opciones_seleccionadas
+    const itemOpciones = isViniloProduct ? [
+      ...opcionesSeleccionadas,
+      ...(viniloParedCompleta ? [] : [{
+        opcion_id: generateId(),
+        opcion_nombre: 'Diseño pared',
+        opcion_tipo: 'select' as const,
+        valor_id: generateId(),
+        valor_nombre: `Pintura ${viniloAltoPintura}m${viniloLlevaMoldura ? ' + Moldura' : ''} + Vinilo ${viniloAltoVinilo > 0 ? viniloAltoVinilo : (viniloAlto - viniloAltoPintura).toFixed(2)}m`,
+        incremento_precio: calculateItemPrice.incrementos,
+      }]),
+    ] : opcionesSeleccionadas;
+
     const newItem: FormItem = {
       id: generateId(),
       producto_id: selectedProducto.id,
-      producto_nombre: selectedProducto.nombre,
+      producto_nombre: isViniloProduct
+        ? `${selectedProducto.nombre} (${viniloAncho}×${viniloAlto}m)`
+        : selectedProducto.nombre,
       cantidad: 1,
       precio_unitario: base,
-      opciones_seleccionadas: opcionesSeleccionadas,
+      opciones_seleccionadas: itemOpciones,
       subtotal: base + incrementos,
-      configuracion,
+      configuracion: itemConfiguracion,
       precio_total_item: total,
       descuento_aplicado: descuento,
     };
@@ -722,7 +813,11 @@ export function CotizacionFormView() {
                 <div className="flex items-center gap-2">
                   <ShoppingCart size={16} className="text-viv-sage-dark" />
                   <span className="text-sm font-bold">{selectedProducto.nombre}</span>
-                  {selectedProducto.precio_descuento > 0 && selectedProducto.precio_descuento < selectedProducto.precio_base ? (
+                  {isViniloProduct ? (
+                    <Badge className="bg-viv-sage/15 text-viv-sage-dark border-0 text-[10px]">
+                      Vinilo x m²
+                    </Badge>
+                  ) : selectedProducto.precio_descuento > 0 && selectedProducto.precio_descuento < selectedProducto.precio_base ? (
                     <Badge className="bg-viv-rose/15 text-viv-rose-dark border-0 text-[10px]">
                       Oferta
                     </Badge>
@@ -745,6 +840,181 @@ export function CotizacionFormView() {
                   <X size={14} />
                 </Button>
               </div>
+
+              {/* Vinyl Calculator */}
+              {isViniloProduct && (
+                <div className="space-y-3 rounded-xl bg-muted/20 p-3">
+                  <p className="text-xs font-bold uppercase tracking-wider text-viv-sage-dark"
+                    style={{ fontFamily: 'var(--font-league-spartan)' }}
+                  >
+                    Cálculo Vinilo
+                  </p>
+
+                  {/* Wall dimensions */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-semibold uppercase tracking-wider">Ancho pared (mts)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="2.80"
+                        value={viniloAncho || ''}
+                        onChange={e => setViniloAncho(Number(e.target.value) || 0)}
+                        className="h-9 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-semibold uppercase tracking-wider">Alto pared (mts)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="2.30"
+                        value={viniloAlto || ''}
+                        onChange={e => setViniloAlto(Number(e.target.value) || 0)}
+                        className="h-9 text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Full wall toggle */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setViniloParedCompleta(!viniloParedCompleta)}
+                      className={`relative w-12 h-7 rounded-full transition-colors duration-200 ${
+                        viniloParedCompleta ? 'bg-viv-sage' : 'bg-muted-foreground/30'
+                      }`}
+                      role="switch"
+                      aria-checked={viniloParedCompleta}
+                    >
+                      <span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                        viniloParedCompleta ? 'translate-x-5' : 'translate-x-0'
+                      }`} />
+                    </button>
+                    <span className="text-xs font-medium">Pared completa con vinilo</span>
+                  </div>
+
+                  {/* Design mode fields */}
+                  {!viniloParedCompleta && (
+                    <div className="space-y-3 pl-2 border-l-2 border-viv-sage/20">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-[10px] font-semibold uppercase tracking-wider">Alto pintura (mts)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="1.10"
+                            value={viniloAltoPintura || ''}
+                            onChange={e => setViniloAltoPintura(Number(e.target.value) || 0)}
+                            className="h-9 text-sm"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] font-semibold uppercase tracking-wider">Alto vinilo (mts)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder={viniloAlto > 0 ? (viniloAlto - viniloAltoPintura).toFixed(2) : '1.20'}
+                            value={viniloAltoVinilo || ''}
+                            onChange={e => setViniloAltoVinilo(Number(e.target.value) || 0)}
+                            className="h-9 text-sm"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Moldura toggle */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setViniloLlevaMoldura(!viniloLlevaMoldura)}
+                          className={`relative w-12 h-7 rounded-full transition-colors duration-200 ${
+                            viniloLlevaMoldura ? 'bg-viv-sage' : 'bg-muted-foreground/30'
+                          }`}
+                          role="switch"
+                          aria-checked={viniloLlevaMoldura}
+                        >
+                          <span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                            viniloLlevaMoldura ? 'translate-x-5' : 'translate-x-0'
+                          }`} />
+                        </button>
+                        <span className="text-xs font-medium">Lleva moldura</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Editable constants */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-semibold uppercase tracking-wider">Constante m² ($)</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={viniloConstante}
+                        onChange={e => setViniloConstante(Number(e.target.value) || 0)}
+                        className="h-9 text-sm"
+                      />
+                    </div>
+                    {!viniloParedCompleta && viniloLlevaMoldura && (
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-semibold uppercase tracking-wider">Cargo diseño ($)</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={viniloCargoDiseno}
+                          onChange={e => setViniloCargoDiseno(Number(e.target.value) || 0)}
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Calculation result */}
+                  {viniloAncho > 0 && viniloAlto > 0 && (
+                    <div className="rounded-xl bg-background border border-border/50 p-3 space-y-1.5">
+                      {viniloParedCompleta ? (
+                        <>
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-muted-foreground">Área ({viniloAncho} × {viniloAlto})</span>
+                            <span className="font-medium">{(viniloAncho * viniloAlto).toFixed(2)} m²</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-muted-foreground">Precio ({(viniloAncho * viniloAlto).toFixed(2)} × {formatPrice(viniloConstante)})</span>
+                            <span className="font-semibold">{formatPrice(calculateItemPrice.base)}</span>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-muted-foreground">Área vinilo ({viniloAncho} × {viniloAltoVinilo > 0 ? viniloAltoVinilo : (viniloAlto - viniloAltoPintura).toFixed(2)})</span>
+                            <span className="font-medium">
+                              {(viniloAncho * (viniloAltoVinilo > 0 ? viniloAltoVinilo : viniloAlto - viniloAltoPintura)).toFixed(2)} m²
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-muted-foreground">Precio vinilo</span>
+                            <span className="font-medium">{formatPrice(calculateItemPrice.base)}</span>
+                          </div>
+                          {viniloLlevaMoldura && calculateItemPrice.incrementos > 0 && (
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span className="text-muted-foreground">Cargo diseño (×{Math.ceil(viniloAncho / 3)})</span>
+                              <span className="font-medium text-viv-sage-dark">+{formatPrice(calculateItemPrice.incrementos)}</span>
+                            </div>
+                          )}
+                        </>
+                      )}
+                      <Separator />
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-bold" style={{ fontFamily: 'var(--font-league-spartan)' }}>Total</span>
+                        <span className="text-lg font-bold text-viv-sage-dark" style={{ fontFamily: 'var(--font-league-spartan)' }}>
+                          {formatPrice(calculateItemPrice.total)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Options Section */}
               {selectedProductoOpciones.length > 0 && (
@@ -836,7 +1106,8 @@ export function CotizacionFormView() {
                 </div>
               )}
 
-              {/* Price Breakdown */}
+              {/* Price Breakdown - hidden for vinilo (shown in calculator) */}
+              {!isViniloProduct && (
               <div className="rounded-xl bg-background border border-border/50 p-3 space-y-2">
                 <p
                   className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2"
@@ -882,6 +1153,7 @@ export function CotizacionFormView() {
                   </span>
                 </div>
               </div>
+              )}
 
               {/* Add button */}
               <Button
