@@ -1,5 +1,5 @@
-const CACHE_NAME = 'vivanticos-v7';
-const APP_VERSION = '1.6.0';
+const CACHE_NAME = 'vivanticos-v8';
+const APP_VERSION = '1.7.0';
 
 const STATIC_ASSETS = [
   '/',
@@ -31,10 +31,8 @@ self.addEventListener('activate', (event) => {
           .map((name) => caches.delete(name))
       );
     }).then(() => {
-      // Claim all clients immediately so they get the new SW
       return self.clients.claim();
     }).then(() => {
-      // Notify all clients that a new version is active
       return self.clients.matchAll({ includeUncontrolled: true });
     }).then((clients) => {
       clients.forEach((client) => {
@@ -56,7 +54,6 @@ self.addEventListener('message', (event) => {
     event.ports[0].postMessage({ version: APP_VERSION });
   }
   if (event.data && event.data.type === 'FORCE_UPDATE') {
-    // Clear all caches and reload
     caches.keys().then((names) => {
       return Promise.all(names.map((name) => caches.delete(name)));
     }).then(() => {
@@ -80,28 +77,23 @@ self.addEventListener('message', (event) => {
   }
 });
 
-// Fetch event - network first with aggressive cache bypass for HTML
+// Fetch event - network first, let Vercel/CDN handle caching headers
 self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
 
-  // Skip API calls and external requests
+  // Skip API calls and external requests — never cache these
   if (event.request.url.includes('/api/') || !event.request.url.startsWith(self.location.origin)) return;
 
-  // For navigation requests (HTML pages), ALWAYS fetch from network - never use cache
+  // For navigation requests (HTML pages), ALWAYS fetch from network
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request, { cache: 'no-store' })
         .then((response) => {
-          if (response.status === 200) {
-            const responseClone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseClone);
-            });
-          }
           return response;
         })
         .catch(() => {
+          // Only use cache if network fails (offline)
           return caches.match(event.request).then((cachedResponse) => {
             return cachedResponse || caches.match('/');
           });
@@ -110,8 +102,23 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // For JS/CSS/static assets - network first with short timeout, cache fallback
-  const isStaticAsset = event.request.url.match(/\.(js|css|woff2?|ttf|png|jpg|jpeg|gif|svg|ico|webp|wasm)$/i);
+  // For Next.js static chunks (/_next/static/) — DO NOT cache in SW.
+  // Vercel CDN handles these with proper Cache-Control headers and content hashes.
+  // Caching them in SW causes stale content when the HTML references new chunk hashes.
+  if (event.request.url.includes('/_next/static/')) {
+    event.respondWith(
+      fetch(event.request)
+        .catch(() => {
+          return caches.match(event.request).then((cachedResponse) => {
+            return cachedResponse || new Response('Offline', { status: 503 });
+          });
+        })
+    );
+    return;
+  }
+
+  // For other static assets (images, fonts, etc.) — network first, cache fallback
+  const isStaticAsset = event.request.url.match(/\.(woff2?|ttf|png|jpg|jpeg|gif|svg|ico|webp|wasm)$/i);
 
   if (isStaticAsset) {
     event.respondWith(
@@ -134,16 +141,10 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // For other requests (JSON, etc.) - network first, cache fallback
+  // For everything else (JSON, etc.) — network first, no cache
   event.respondWith(
     fetch(event.request, { cache: 'no-cache' })
       .then((response) => {
-        if (response.status === 200) {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseClone);
-          });
-        }
         return response;
       })
       .catch(() => {

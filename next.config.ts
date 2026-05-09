@@ -28,12 +28,26 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // Prevent aggressive caching of HTML pages on mobile
+        // Prevent aggressive caching of HTML pages on mobile/PWA
         source: '/(.*)',
         headers: [
           {
             key: 'X-Content-Type-Options',
             value: 'nosniff',
+          },
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, must-revalidate',
+          },
+        ],
+      },
+      {
+        // Next.js static chunks have content hashes — safe to cache briefly
+        source: '/_next/static/(.*)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
           },
         ],
       },
