@@ -51,7 +51,7 @@ const ESTADO_LABELS: Record<EstadoEntrega, string> = {
 // Helper to compute initial form state from existing entrega or cotización
 function getInitialFormState(
   existingEntrega: Entrega | null,
-  linkedCotizacion: { cliente_nombre: string; cliente_telefono: string; items: { producto_nombre: string; opciones_seleccionadas: { valor_nombre: string }[]; cantidad: number }[] } | null
+  linkedCotizacion: { cliente_nombre: string; cliente_telefono: string; cliente_cedula?: string; items: { producto_nombre: string; opciones_seleccionadas: { valor_nombre: string }[]; cantidad: number }[] } | null
 ) {
   if (existingEntrega) {
     return {
@@ -59,6 +59,8 @@ function getInitialFormState(
       clienteTelefono: existingEntrega.cliente_telefono,
       clienteDireccion: existingEntrega.cliente_direccion,
       fechaEntrega: existingEntrega.fecha_entrega,
+      horaEntrega: existingEntrega.hora_entrega || '',
+      clienteCedula: existingEntrega.cliente_cedula || '',
       estado: existingEntrega.estado,
       notas: existingEntrega.notas || '',
       items: existingEntrega.items.map(i => ({
@@ -76,6 +78,8 @@ function getInitialFormState(
       clienteTelefono: linkedCotizacion.cliente_telefono,
       clienteDireccion: '',
       fechaEntrega: '',
+      horaEntrega: '',
+      clienteCedula: linkedCotizacion.cliente_cedula || '',
       estado: 'pendiente' as EstadoEntrega,
       notas: '',
       items: linkedCotizacion.items.map(ci => ({
@@ -95,6 +99,8 @@ function getInitialFormState(
     clienteTelefono: '',
     clienteDireccion: '',
     fechaEntrega: '',
+    horaEntrega: '',
+    clienteCedula: '',
     estado: 'pendiente' as EstadoEntrega,
     notas: '',
     items: [] as FormItem[],
@@ -134,6 +140,8 @@ export function EntregaFormView() {
   const [clienteTelefono, setClienteTelefono] = useState(() => initialState.clienteTelefono);
   const [clienteDireccion, setClienteDireccion] = useState(() => initialState.clienteDireccion);
   const [fechaEntrega, setFechaEntrega] = useState(() => initialState.fechaEntrega);
+  const [horaEntrega, setHoraEntrega] = useState(() => initialState.horaEntrega || '');
+  const [clienteCedula, setClienteCedula] = useState(() => initialState.clienteCedula || '');
   const [estado, setEstado] = useState<EstadoEntrega>(() => initialState.estado);
   const [notas, setNotas] = useState(() => initialState.notas);
   const [items, setItems] = useState<FormItem[]>(() => initialState.items);
@@ -212,8 +220,10 @@ export function EntregaFormView() {
         : selectedCotizacionId || undefined,
       cliente_nombre: clienteNombre.trim(),
       cliente_telefono: clienteTelefono.trim(),
+      cliente_cedula: clienteCedula.trim() || undefined,
       cliente_direccion: clienteDireccion.trim(),
       fecha_entrega: fechaEntrega,
+      hora_entrega: horaEntrega || undefined,
       estado,
       notas: notas.trim() || undefined,
       items: entregaItems,
@@ -334,30 +344,30 @@ export function EntregaFormView() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Nombre */}
-            <div className="space-y-1.5">
-              <Label
-                htmlFor="cliente_nombre"
-                className="text-xs font-semibold uppercase tracking-wider"
-              >
-                Nombre *
-              </Label>
-              <div className="relative">
-                <User
-                  size={14}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                />
-                <Input
-                  id="cliente_nombre"
-                  placeholder="Nombre del cliente"
-                  value={clienteNombre}
-                  onChange={e => setClienteNombre(e.target.value)}
-                  className="h-10 pl-9"
-                />
-              </div>
+          {/* Nombre */}
+          <div className="space-y-1.5">
+            <Label
+              htmlFor="cliente_nombre"
+              className="text-xs font-semibold uppercase tracking-wider"
+            >
+              Nombre *
+            </Label>
+            <div className="relative">
+              <User
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+              />
+              <Input
+                id="cliente_nombre"
+                placeholder="Nombre del cliente"
+                value={clienteNombre}
+                onChange={e => setClienteNombre(e.target.value)}
+                className="h-10 pl-9"
+              />
             </div>
+          </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Teléfono */}
             <div className="space-y-1.5">
               <Label
@@ -377,6 +387,25 @@ export function EntregaFormView() {
                   value={clienteTelefono}
                   onChange={e => setClienteTelefono(e.target.value)}
                   className="h-10 pl-9"
+                />
+              </div>
+            </div>
+
+            {/* Cédula */}
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="cliente_cedula"
+                className="text-xs font-semibold uppercase tracking-wider"
+              >
+                Cédula
+              </Label>
+              <div className="relative">
+                <Input
+                  id="cliente_cedula"
+                  placeholder="Número de cédula"
+                  value={clienteCedula}
+                  onChange={e => setClienteCedula(e.target.value)}
+                  className="h-10"
                 />
               </div>
             </div>
@@ -433,6 +462,23 @@ export function EntregaFormView() {
                 type="date"
                 value={fechaEntrega}
                 onChange={e => setFechaEntrega(e.target.value)}
+                className="h-10"
+              />
+            </div>
+
+            {/* Hora de Entrega */}
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="hora_entrega"
+                className="text-xs font-semibold uppercase tracking-wider"
+              >
+                Hora de Entrega
+              </Label>
+              <Input
+                id="hora_entrega"
+                type="time"
+                value={horaEntrega}
+                onChange={e => setHoraEntrega(e.target.value)}
                 className="h-10"
               />
             </div>

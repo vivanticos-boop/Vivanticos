@@ -71,6 +71,8 @@ export function getEstadoCotizacionColor(estado: string): string {
     case 'enviada': return 'bg-viv-peach text-gray-800';
     case 'aprobada': return 'bg-viv-sage text-gray-800';
     case 'rechazada': return 'bg-viv-rose text-gray-800';
+    case 'transito': return 'bg-amber-100 text-amber-800';
+    case 'pedido': return 'bg-blue-100 text-blue-800';
     default: return 'bg-muted text-muted-foreground';
   }
 }

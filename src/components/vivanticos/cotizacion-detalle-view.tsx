@@ -45,13 +45,17 @@ const ESTADO_LABELS: Record<EstadoCotizacion, string> = {
   enviada: 'Enviada',
   aprobada: 'Aprobada',
   rechazada: 'Rechazada',
+  transito: 'En Tránsito',
+  pedido: 'Pedido',
 };
 
 const ESTADO_FLOW: Record<EstadoCotizacion, EstadoCotizacion[]> = {
-  borrador: ['enviada'],
+  borrador: ['enviada', 'transito'],
   enviada: ['aprobada', 'rechazada'],
   aprobada: [],
   rechazada: ['borrador'],
+  transito: ['pedido', 'borrador'],
+  pedido: ['aprobada'],
 };
 
 export function CotizacionDetalleView() {
@@ -62,6 +66,7 @@ export function CotizacionDetalleView() {
 
   const cotizaciones = useCotizacionesStore(s => s.cotizaciones);
   const updateEstado = useCotizacionesStore(s => s.updateEstado);
+  const updateEstadoSupabase = useCotizacionesStore(s => s.updateEstadoSupabase);
   const deleteCotizacion = useCotizacionesStore(s => s.deleteCotizacion);
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -98,6 +103,7 @@ export function CotizacionDetalleView() {
 
   const handleEstadoChange = (nuevoEstado: EstadoCotizacion) => {
     updateEstado(cotizacion.id, nuevoEstado);
+    updateEstadoSupabase(cotizacion.id, nuevoEstado);
     toast.success(`Estado cambiado a ${ESTADO_LABELS[nuevoEstado]}`);
   };
 
@@ -243,6 +249,12 @@ export function CotizacionDetalleView() {
                   </div>
                 )}
               </div>
+              {cotizacion.cliente_cedula && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span className="font-semibold">CC:</span>
+                  <span>{cotizacion.cliente_cedula}</span>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -442,6 +454,16 @@ export function CotizacionDetalleView() {
                 Editar
               </Button>
 
+              {cotizacion.estado === 'transito' && (
+                <Button
+                  className="w-full justify-start bg-blue-500 hover:bg-blue-600 text-white"
+                  onClick={() => handleEstadoChange('pedido')}
+                >
+                  <ShoppingBag size={16} className="mr-2" />
+                  Pasar a Pedido
+                </Button>
+              )}
+
               <Button
                 variant="outline"
                 className="w-full justify-start border-green-500/30 text-green-600 hover:bg-green-50"
@@ -451,14 +473,15 @@ export function CotizacionDetalleView() {
                 Enviar WhatsApp
               </Button>
 
-              <Button
-                variant="outline"
-                className="w-full justify-start border-viv-peach/30 text-viv-peach-dark hover:bg-viv-peach/10"
-                onClick={handleCrearEntrega}
-              >
-                <Truck size={16} className="mr-2" />
-                Crear Entrega
-              </Button>
+              {(cotizacion.estado === 'pedido' || cotizacion.estado === 'aprobada') && (
+                <Button
+                  className="w-full justify-start bg-viv-sage hover:bg-viv-sage-dark text-white"
+                  onClick={handleCrearEntrega}
+                >
+                  <Truck size={16} className="mr-2" />
+                  Programar Entrega
+                </Button>
+              )}
 
               <Separator className="my-2" />
 

@@ -8,11 +8,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Plus, FileText, Phone, Mail, CalendarDays, ShoppingBag, RefreshCw } from 'lucide-react';
+import { Search, Plus, FileText, Phone, Mail, CalendarDays, ShoppingBag, RefreshCw, CreditCard } from 'lucide-react';
 import { formatPrice, formatDateTime, getEstadoCotizacionColor } from '@/lib/utils';
 import type { EstadoCotizacion } from '@/types';
 
 const ESTADO_LABELS: Record<EstadoCotizacion, string> = {
+  transito: 'En Tránsito',
+  pedido: 'Pedidos',
   borrador: 'Borradores',
   enviada: 'Enviadas',
   aprobada: 'Aprobadas',
@@ -48,7 +50,8 @@ export function CotizacionesView() {
       result = result.filter(c =>
         c.cliente_nombre.toLowerCase().includes(term) ||
         c.cliente_telefono.includes(term) ||
-        (c.cliente_email && c.cliente_email.toLowerCase().includes(term))
+        (c.cliente_email && c.cliente_email.toLowerCase().includes(term)) ||
+        (c.cliente_cedula && c.cliente_cedula.includes(term))
       );
     }
 
@@ -60,7 +63,7 @@ export function CotizacionesView() {
 
   // Count by estado
   const counts = useMemo(() => {
-    const base = { todas: cotizaciones.length, borrador: 0, enviada: 0, aprobada: 0, rechazada: 0 };
+    const base = { todas: cotizaciones.length, transito: 0, pedido: 0, borrador: 0, enviada: 0, aprobada: 0, rechazada: 0 };
     cotizaciones.forEach(c => { base[c.estado]++; });
     return base;
   }, [cotizaciones]);
@@ -128,7 +131,7 @@ export function CotizacionesView() {
           className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
         />
         <Input
-          placeholder="Buscar por nombre, teléfono o email..."
+          placeholder="Buscar por nombre, cédula, teléfono o email..."
           value={searchTerm}
           onChange={e => setSearchTerm(e.target.value)}
           className="pl-9 h-10"
@@ -215,6 +218,12 @@ export function CotizacionesView() {
                     <Phone size={12} className="flex-shrink-0" />
                     <span className="truncate">{cot.cliente_telefono}</span>
                   </div>
+                  {cot.cliente_cedula && (
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <CreditCard size={12} className="flex-shrink-0" />
+                      <span className="truncate">{cot.cliente_cedula}</span>
+                    </div>
+                  )}
                   {cot.cliente_email && (
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <Mail size={12} className="flex-shrink-0" />

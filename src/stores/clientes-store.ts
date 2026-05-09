@@ -48,7 +48,7 @@ interface ClienteState {
   deleteCliente: (id: string) => void;
   getCliente: (id: string) => Cliente | undefined;
   searchClientes: (query: string) => Cliente[];
-  findOrCreateCliente: (nombre: string, telefono: string, email?: string, direccion?: string) => Promise<Cliente | null>;
+  findOrCreateCliente: (nombre: string, telefono: string, email?: string, direccion?: string, cedula?: string) => Promise<Cliente | null>;
   loadFromSupabase: () => Promise<void>;
   saveClienteToSupabase: (c: Cliente) => Promise<boolean>;
   deleteClienteFromSupabase: (id: string) => Promise<boolean>;
@@ -79,28 +79,38 @@ export const useClientesStore = create<ClienteState>((set, get) => {
   }),
   getCliente: (id) => get().clientes.find(c => c.id === id),
 
-  // Search clientes by nombre, telefono, email
+  // Search clientes by nombre, telefono, email, cedula
   searchClientes: (query: string) => {
     if (!query.trim()) return get().clientes;
     const term = query.toLowerCase().trim();
     return get().clientes.filter(c =>
       c.nombre.toLowerCase().includes(term) ||
       c.telefono.includes(term) ||
-      (c.email && c.email.toLowerCase().includes(term))
+      (c.email && c.email.toLowerCase().includes(term)) ||
+      (c.cedula && c.cedula.includes(term))
     );
   },
 
-  // Find existing cliente by nombre+telefono, or create new
-  findOrCreateCliente: async (nombre: string, telefono: string, email?: string, direccion?: string) => {
-    const existing = get().clientes.find(c =>
-      c.nombre.toLowerCase() === nombre.toLowerCase() && c.telefono === telefono
-    );
+  // Find existing cliente by nombre+telefono or by cedula, or create new
+  findOrCreateCliente: async (nombre: string, telefono: string, email?: string, direccion?: string, cedula?: string) => {
+    // First try to find by cedula if provided
+    let existing: Cliente | undefined;
+    if (cedula && cedula.trim()) {
+      existing = get().clientes.find(c => c.cedula === cedula.trim());
+    }
+    // Fallback to nombre+telefono
+    if (!existing) {
+      existing = get().clientes.find(c =>
+        c.nombre.toLowerCase() === nombre.toLowerCase() && c.telefono === telefono
+      );
+    }
 
     if (existing) {
-      // Update email/direccion if provided and different
+      // Update email/direccion/cedula if provided and different
       const updates: Partial<Cliente> = {};
       if (email && !existing.email) updates.email = email;
       if (direccion && !existing.direccion) updates.direccion = direccion;
+      if (cedula && cedula.trim() && !existing.cedula) updates.cedula = cedula.trim();
       if (Object.keys(updates).length > 0) {
         const updated = { ...existing, ...updates, actualizado_en: new Date().toISOString() };
         get().updateCliente(updated);
@@ -118,6 +128,7 @@ export const useClientesStore = create<ClienteState>((set, get) => {
       telefono,
       email,
       direccion,
+      cedula: cedula?.trim() || undefined,
       creado_en: now,
       actualizado_en: now,
     };
@@ -161,6 +172,7 @@ export const useClientesStore = create<ClienteState>((set, get) => {
         telefono: c.telefono || '',
         email: c.email || undefined,
         direccion: c.direccion || undefined,
+        cedula: c.cedula || undefined,
         creado_en: c.creado_en || new Date().toISOString(),
         actualizado_en: c.actualizado_en || new Date().toISOString(),
       }));
@@ -202,6 +214,7 @@ export const useClientesStore = create<ClienteState>((set, get) => {
         telefono: c.telefono,
         email: c.email || null,
         direccion: c.direccion || null,
+        cedula: c.cedula || null,
       };
 
       if (isUUID(c.id)) {

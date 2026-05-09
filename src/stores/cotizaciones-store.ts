@@ -239,6 +239,7 @@ export const useCotizacionesStore = create<CotizacionState>((set, get) => {
           cliente_telefono: c.cliente_telefono || '',
           cliente_email: c.cliente_email || undefined,
           cliente_direccion: c.cliente_direccion || undefined,
+          cliente_cedula: c.cliente_cedula || undefined,
           cliente_id: c.cliente_id || undefined,
           items: cotItems,
           subtotal: c.subtotal || 0,
@@ -309,6 +310,7 @@ export const useCotizacionesStore = create<CotizacionState>((set, get) => {
           c.cliente_telefono,
           c.cliente_email,
           c.cliente_direccion,
+          c.cliente_cedula,
         );
         if (cliente) resolvedClienteId = cliente.id;
       } catch (e) {
@@ -320,6 +322,7 @@ export const useCotizacionesStore = create<CotizacionState>((set, get) => {
         cliente_telefono: c.cliente_telefono,
         cliente_email: c.cliente_email || null,
         cliente_direccion: c.cliente_direccion || null,
+        cliente_cedula: c.cliente_cedula || null,
         cliente_id: resolvedClienteId || null,
         subtotal: c.subtotal,
         descuento_total: c.descuento_total,

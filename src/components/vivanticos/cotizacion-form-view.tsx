@@ -78,6 +78,7 @@ export function CotizacionFormView() {
   const [clienteTelefono, setClienteTelefono] = useState(() => existingCotizacion?.cliente_telefono || '');
   const [clienteEmail, setClienteEmail] = useState(() => existingCotizacion?.cliente_email || '');
   const [clienteDireccion, setClienteDireccion] = useState(() => existingCotizacion?.cliente_direccion || '');
+  const [clienteCedula, setClienteCedula] = useState(() => existingCotizacion?.cliente_cedula || '');
   const [notas, setNotas] = useState(() => existingCotizacion?.notas || '');
 
   // Client autocomplete state
@@ -112,6 +113,7 @@ export function CotizacionFormView() {
     setClienteTelefono(cliente.telefono);
     setClienteEmail(cliente.email || '');
     setClienteDireccion(cliente.direccion || '');
+    setClienteCedula(cliente.cedula || '');
     setShowClientSuggestions(false);
   };
 
@@ -610,6 +612,7 @@ export function CotizacionFormView() {
       cliente_telefono: clienteTelefono.trim(),
       cliente_email: clienteEmail.trim() || undefined,
       cliente_direccion: clienteDireccion.trim() || undefined,
+      cliente_cedula: clienteCedula.trim() || undefined,
       items: items.map(item => ({
         id: item.id,
         cotizacion_id: isEditing ? existingCotizacion!.id : '',
@@ -632,7 +635,7 @@ export function CotizacionFormView() {
       subtotal: totals.subtotal,
       descuento_total: totals.descuento,
       total: totals.total,
-      estado: isEditing ? existingCotizacion!.estado : 'borrador',
+      estado: isEditing ? existingCotizacion!.estado : 'transito',
       vendedor_id: currentUser?.id || 'u3',
       notas: notas.trim() || undefined,
       creado_en: isEditing ? existingCotizacion!.creado_en : now,
@@ -741,7 +744,7 @@ export function CotizacionFormView() {
                     >
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{cliente.nombre}</p>
-                        <p className="text-[10px] text-muted-foreground">{cliente.telefono}{cliente.email ? ` · ${cliente.email}` : ''}</p>
+                        <p className="text-[10px] text-muted-foreground">{cliente.telefono}{cliente.cedula ? ` · CC: ${cliente.cedula}` : ''}{cliente.email ? ` · ${cliente.email}` : ''}</p>
                       </div>
                       {cliente.direccion && (
                         <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">{cliente.direccion}</span>
@@ -784,6 +787,19 @@ export function CotizacionFormView() {
                 placeholder="Cra 15 #82-34, Apt 502"
                 value={clienteDireccion}
                 onChange={e => setClienteDireccion(e.target.value)}
+                className="h-10"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider">
+                Cédula
+              </Label>
+              <Input
+                placeholder="Número de cédula del cliente"
+                value={clienteCedula}
+                onChange={e => setClienteCedula(e.target.value)}
                 className="h-10"
               />
             </div>

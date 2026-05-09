@@ -80,7 +80,7 @@ export interface ProductoOpcionValor {
 }
 
 // --- Cotizaciones ---
-export type EstadoCotizacion = 'borrador' | 'enviada' | 'aprobada' | 'rechazada';
+export type EstadoCotizacion = 'borrador' | 'enviada' | 'aprobada' | 'rechazada' | 'transito' | 'pedido';
 
 export interface OpcionalCotizacion {
   id: string;
@@ -95,6 +95,7 @@ export interface Cotizacion {
   cliente_telefono: string;
   cliente_email?: string;
   cliente_direccion?: string;  // NEW
+  cliente_cedula?: string;     // Cédula del cliente para búsqueda
   cliente_id?: string;         // NEW - link to clientes table
   items: CotizacionItem[];
   opcionales?: OpcionalCotizacion[];
@@ -153,7 +154,9 @@ export interface Entrega {
   cliente_nombre: string;
   cliente_telefono: string;
   cliente_direccion: string;
+  cliente_cedula?: string;     // Cédula del cliente para búsqueda
   fecha_entrega: string;
+  hora_entrega?: string;       // Hora de entrega (ej: '14:00')
   estado: EstadoEntrega;
   notas?: string;
   items: EntregaItem[];
@@ -176,6 +179,7 @@ export interface Cliente {
   telefono: string;
   email?: string;
   direccion?: string;
+  cedula?: string;             // Cédula del cliente
   creado_en: string;
   actualizado_en: string;
 }

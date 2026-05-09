@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import {
   Truck,
   ChevronLeft,
@@ -25,6 +26,7 @@ import {
   Calendar as CalendarIcon,
   Clock,
   Eye,
+  Search,
 } from 'lucide-react';
 import {
   formatDate,
@@ -92,6 +94,7 @@ export function EntregasView() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [filterTab, setFilterTab] = useState<FilterTab>('todas');
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Calendar calculations
   const monthStart = startOfMonth(currentMonth);
@@ -141,6 +144,17 @@ export function EntregasView() {
     return deliveriesForSelectedDate.filter(e => e.estado === filterTab);
   }, [deliveriesForSelectedDate, filterTab]);
 
+  // Apply search filter
+  const searchFiltered = useMemo(() => {
+    if (!searchTerm.trim()) return filteredDeliveries;
+    const term = searchTerm.toLowerCase();
+    return filteredDeliveries.filter(e =>
+      e.cliente_nombre.toLowerCase().includes(term) ||
+      (e.cliente_cedula && e.cliente_cedula.includes(term)) ||
+      e.cliente_telefono.includes(term)
+    );
+  }, [filteredDeliveries, searchTerm]);
+
   // Selected entrega detail
   const selectedEntrega = selectedEntregaId ? getEntrega(selectedEntregaId) : null;
 
@@ -188,6 +202,20 @@ export function EntregasView() {
           <Plus size={16} className="mr-2" />
           Nueva Entrega
         </Button>
+      </div>
+
+      {/* Search by cédula or nombre */}
+      <div className="relative">
+        <Search
+          size={16}
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+        />
+        <Input
+          placeholder="Buscar por nombre, cédula o teléfono..."
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+          className="pl-9 h-10"
+        />
       </div>
 
       {/* Calendar Section */}
@@ -340,7 +368,7 @@ export function EntregasView() {
           )}
         </div>
         <span className="text-xs text-muted-foreground">
-          {filteredDeliveries.length} entrega{filteredDeliveries.length !== 1 ? 's' : ''}
+          {searchFiltered.length} entrega{searchFiltered.length !== 1 ? 's' : ''}
         </span>
       </div>
 
@@ -371,7 +399,7 @@ export function EntregasView() {
       </div>
 
       {/* Delivery Cards */}
-      {filteredDeliveries.length === 0 ? (
+      {searchFiltered.length === 0 ? (
         <Card className="border-0 shadow-sm">
           <CardContent className="py-12 text-center">
             <div className="mx-auto w-14 h-14 rounded-2xl bg-viv-bluegrey/10 flex items-center justify-center mb-3">
@@ -397,7 +425,7 @@ export function EntregasView() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {filteredDeliveries.map(entrega => (
+          {searchFiltered.map(entrega => (
             <Card
               key={entrega.id}
               className={`border-0 shadow-sm transition-all cursor-pointer hover:shadow-md ${
@@ -440,6 +468,7 @@ export function EntregasView() {
                           <CalendarIcon size={12} className="text-muted-foreground flex-shrink-0" />
                           <span className="text-xs text-muted-foreground">
                             {formatDate(entrega.fecha_entrega)}
+                            {entrega.hora_entrega && ` · ${entrega.hora_entrega}`}
                           </span>
                         </div>
                       </div>
@@ -475,6 +504,14 @@ export function EntregasView() {
                         {entrega.cliente_telefono}
                       </span>
                     </div>
+
+                    {/* Cédula */}
+                    {entrega.cliente_cedula && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-semibold text-muted-foreground">CC:</span>
+                        <span className="text-xs text-muted-foreground">{entrega.cliente_cedula}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
