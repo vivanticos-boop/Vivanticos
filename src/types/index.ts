@@ -82,6 +82,13 @@ export interface ProductoOpcionValor {
 // --- Cotizaciones ---
 export type EstadoCotizacion = 'borrador' | 'enviada' | 'aprobada' | 'rechazada';
 
+export interface OpcionalCotizacion {
+  id: string;
+  opcional_predefinido_id: string;
+  nombre: string;
+  valor: number;
+}
+
 export interface Cotizacion {
   id: string;
   cliente_nombre: string;
@@ -90,6 +97,7 @@ export interface Cotizacion {
   cliente_direccion?: string;  // NEW
   cliente_id?: string;         // NEW - link to clientes table
   items: CotizacionItem[];
+  opcionales?: OpcionalCotizacion[];
   subtotal: number;
   descuento_total: number;
   total: number;

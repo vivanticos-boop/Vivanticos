@@ -16,11 +16,11 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import {
-  ArrowLeft, Plus, Trash2, Save, Search, ShoppingCart, X, Ruler, Bed, Layers, Tag, Check, GripVertical,
+  ArrowLeft, Plus, Trash2, Save, Search, ShoppingCart, X, Ruler, Bed, Layers, Tag, Check,
 } from 'lucide-react';
 import { formatPrice, generateId } from '@/lib/utils';
 import { toast } from 'sonner';
-import type { Cotizacion, CotizacionItem, ItemOpcionSeleccionada, ProductoOpcion, ProductoOpcionValor, TipoOpcionInput, OpcionalPredefinido } from '@/types';
+import type { Cotizacion, ItemOpcionSeleccionada, OpcionalPredefinido, OpcionalCotizacion } from '@/types';
 import { TIPO_PRODUCTO_LABELS } from '@/types';
 
 // Local form item type
@@ -36,33 +36,6 @@ interface FormItem {
   precio_total_item: number; // subtotal - descuento_aplicado
   descuento_aplicado: number;
 }
-
-// Local type for managing option + values together in the form
-interface FormOpcion {
-  id: string;
-  tipo: TipoOpcionInput;
-  nombre: string;
-  requerida: boolean;
-  orden: number;
-  valores: FormOpcionValor[];
-}
-
-interface FormOpcionValor {
-  id: string;
-  nombre: string;
-  incremento_precio: number;
-  activo: boolean;
-}
-
-const OPCION_TIPO_LABELS: Record<TipoOpcionInput, string> = {
-  select: 'Selección',
-  checkbox: 'Casilla',
-};
-
-const OPCION_TIPO_ICONS: Record<TipoOpcionInput, React.ReactNode> = {
-  select: <Tag size={14} />,
-  checkbox: <Tag size={14} />,
-};
 
 // Icon helper based on option name
 const getOpcionIcon = (nombre: string): React.ReactNode => {
@@ -169,83 +142,31 @@ export function CotizacionFormView() {
   const [checkboxSelections, setCheckboxSelections] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Form opciones state (for managing product options in cotizacion form)
-  const [formOpciones, setFormOpciones] = useState<FormOpcion[]>([]);
+  // Quotation-level opcionales
+  const [opcionalesCotizacion, setOpcionalesCotizacion] = useState<OpcionalCotizacion[]>([]);
 
-  // --- Option management functions ---
-  const addOpcion = () => {
-    const newOpcion: FormOpcion = {
+  const handleAddOpcionalCotizacion = (opcional: OpcionalPredefinido) => {
+    const exists = opcionalesCotizacion.some(o => o.opcional_predefinido_id === opcional.id);
+    if (exists) {
+      toast.error('Esta opción ya fue agregada');
+      return;
+    }
+    setOpcionalesCotizacion([...opcionalesCotizacion, {
       id: generateId(),
-      tipo: 'select' as TipoOpcionInput,
-      nombre: '',
-      requerida: false,
-      orden: formOpciones.length + 1,
-      valores: [],
-    };
-    setFormOpciones([...formOpciones, newOpcion]);
+      opcional_predefinido_id: opcional.id,
+      nombre: opcional.nombre,
+      valor: opcional.valor,
+    }]);
   };
 
-  const removeOpcion = (opcionId: string) => {
-    setFormOpciones(formOpciones.filter(o => o.id !== opcionId));
+  const handleUpdateOpcionalCotizacion = (id: string, nuevoValor: number) => {
+    setOpcionalesCotizacion(opcionalesCotizacion.map(o =>
+      o.id === id ? { ...o, valor: nuevoValor } : o
+    ));
   };
 
-  const updateOpcion = (opcionId: string, field: keyof FormOpcion, value: unknown) => {
-    setFormOpciones(
-      formOpciones.map(o =>
-        o.id === opcionId ? { ...o, [field]: value } : o
-      )
-    );
-  };
-
-  const addValorToOpcion = (opcionId: string) => {
-    setFormOpciones(
-      formOpciones.map(o => {
-        if (o.id !== opcionId) return o;
-        return {
-          ...o,
-          valores: [
-            ...o.valores,
-            {
-              id: generateId(),
-              nombre: '',
-              incremento_precio: 0,
-              activo: true,
-            },
-          ],
-        };
-      })
-    );
-  };
-
-  const removeValorFromOpcion = (opcionId: string, valorId: string) => {
-    setFormOpciones(
-      formOpciones.map(o => {
-        if (o.id !== opcionId) return o;
-        return {
-          ...o,
-          valores: o.valores.filter(v => v.id !== valorId),
-        };
-      })
-    );
-  };
-
-  const updateValorInOpcion = (
-    opcionId: string,
-    valorId: string,
-    field: keyof FormOpcionValor,
-    value: unknown
-  ) => {
-    setFormOpciones(
-      formOpciones.map(o => {
-        if (o.id !== opcionId) return o;
-        return {
-          ...o,
-          valores: o.valores.map(v =>
-            v.id === valorId ? { ...v, [field]: value } : v
-          ),
-        };
-      })
-    );
+  const handleRemoveOpcionalCotizacion = (id: string) => {
+    setOpcionalesCotizacion(opcionalesCotizacion.filter(o => o.id !== id));
   };
 
   // Filter subcategorias by selected categoria
@@ -397,8 +318,9 @@ export function CotizacionFormView() {
     const descuento = items.reduce((sum, item) => sum + item.descuento_aplicado * item.cantidad, 0);
     const baseTotal = items.reduce((sum, item) => sum + item.precio_unitario * item.cantidad, 0);
     const incrementos = items.reduce((sum, item) => sum + (item.subtotal - item.precio_unitario) * item.cantidad, 0);
-    return { baseTotal, incrementos, descuento, subtotal, total: subtotal };
-  }, [items]);
+    const opcionalesTotal = opcionalesCotizacion.reduce((sum, o) => sum + o.valor, 0);
+    return { baseTotal, incrementos, descuento, opcionalesTotal, subtotal, total: subtotal + opcionalesTotal };
+  }, [items, opcionalesCotizacion]);
 
   // Handle selecting a categoria
   const handleSelectCategoria = (categoriaId: string) => {
@@ -486,10 +408,42 @@ export function CotizacionFormView() {
     };
 
     setItems([...items, newItem]);
-    setSelectedProductoId('');
-    setOptionSelections({});
-    setCheckboxSelections({});
+    resetProductSelector();
     toast.success(`${selectedProducto.nombre} agregado`);
+  };
+
+  // Update product option value per item
+  const handleUpdateOpcionValue = (itemId: string, opcionId: string, nuevoValor: number) => {
+    setItems(items.map(i => {
+      if (i.id !== itemId) return i;
+      const nuevasOpciones = i.opciones_seleccionadas.map(op =>
+        op.opcion_id === opcionId ? { ...op, incremento_precio: nuevoValor } : op
+      );
+      const nuevosIncrementos = nuevasOpciones.reduce((sum, op) => sum + op.incremento_precio, 0);
+      const nuevoSubtotal = i.precio_unitario + nuevosIncrementos;
+      return {
+        ...i,
+        opciones_seleccionadas: nuevasOpciones,
+        subtotal: nuevoSubtotal,
+        precio_total_item: nuevoSubtotal - i.descuento_aplicado,
+      };
+    }));
+  };
+
+  // Remove product option from item
+  const handleRemoveOpcionFromItem = (itemId: string, opcionId: string) => {
+    setItems(items.map(i => {
+      if (i.id !== itemId) return i;
+      const nuevasOpciones = i.opciones_seleccionadas.filter(op => op.opcion_id !== opcionId);
+      const nuevosIncrementos = nuevasOpciones.reduce((sum, op) => sum + op.incremento_precio, 0);
+      const nuevoSubtotal = i.precio_unitario + nuevosIncrementos;
+      return {
+        ...i,
+        opciones_seleccionadas: nuevasOpciones,
+        subtotal: nuevoSubtotal,
+        precio_total_item: nuevoSubtotal - i.descuento_aplicado,
+      };
+    }));
   };
 
   // Remove item
@@ -521,74 +475,7 @@ export function CotizacionFormView() {
     }));
   };
 
-  // Add optional config to item
-  const handleAddOpcionalToItem = (itemId: string, opcional: OpcionalPredefinido) => {
-    setItems(items.map(i => {
-      if (i.id !== itemId) return i;
-      // Check if already exists
-      const exists = i.opciones_seleccionadas.some(op => op.opcion_nombre === opcional.nombre);
-      if (exists) return i;
-      
-      const nuevaOpcion: ItemOpcionSeleccionada = {
-        opcion_id: generateId(),
-        opcion_nombre: opcional.nombre,
-        opcion_tipo: 'select',
-        valor_id: generateId(),
-        valor_nombre: opcional.nombre,
-        incremento_precio: opcional.valor,
-      };
-      
-      const nuevasOpciones = [...i.opciones_seleccionadas, nuevaOpcion];
-      const nuevosIncrementos = nuevasOpciones.reduce((sum, op) => sum + op.incremento_precio, 0);
-      const nuevoSubtotal = i.precio_unitario + nuevosIncrementos;
-      
-      return {
-        ...i,
-        opciones_seleccionadas: nuevasOpciones,
-        subtotal: nuevoSubtotal,
-        precio_total_item: nuevoSubtotal - i.descuento_aplicado,
-      };
-    }));
-  };
 
-  // Update optional config value
-  const handleUpdateOpcionalValue = (itemId: string, opcionId: string, nuevoValor: number) => {
-    setItems(items.map(i => {
-      if (i.id !== itemId) return i;
-      
-      const nuevasOpciones = i.opciones_seleccionadas.map(op =>
-        op.opcion_id === opcionId ? { ...op, incremento_precio: nuevoValor } : op
-      );
-      
-      const nuevosIncrementos = nuevasOpciones.reduce((sum, op) => sum + op.incremento_precio, 0);
-      const nuevoSubtotal = i.precio_unitario + nuevosIncrementos;
-      
-      return {
-        ...i,
-        opciones_seleccionadas: nuevasOpciones,
-        subtotal: nuevoSubtotal,
-        precio_total_item: nuevoSubtotal - i.descuento_aplicado,
-      };
-    }));
-  };
-
-  // Remove optional config from item
-  const handleRemoveOpcionalFromItem = (itemId: string, opcionId: string) => {
-    setItems(items.map(i => {
-      if (i.id !== itemId) return i;
-      
-      const nuevasOpciones = i.opciones_seleccionadas.filter(op => op.opcion_id !== opcionId);
-      const nuevosIncrementos = nuevasOpciones.reduce((sum, op) => sum + op.incremento_precio, 0);
-      const nuevoSubtotal = i.precio_unitario + nuevosIncrementos;
-      
-      return {
-        ...i,
-        opciones_seleccionadas: nuevasOpciones,
-        subtotal: nuevoSubtotal,
-        precio_total_item: nuevoSubtotal - i.descuento_aplicado,
-      };
-    }));
-  };
 
   // Submit form
   const handleSubmit = () => {
@@ -626,6 +513,12 @@ export function CotizacionFormView() {
         configuracion: item.configuracion,
         precio_total_item: item.precio_total_item,
         descuento_aplicado: item.descuento_aplicado,
+      })),
+      opcionales: opcionalesCotizacion.map(op => ({
+        id: op.id,
+        opcional_predefinido_id: op.opcional_predefinido_id,
+        nombre: op.nombre,
+        valor: op.valor,
       })),
       subtotal: totals.subtotal,
       descuento_total: totals.descuento,
@@ -1223,19 +1116,19 @@ export function CotizacionFormView() {
                               variant="outline"
                               className="text-[10px] border-viv-beige flex-shrink-0"
                             >
-                              {op.opcion_nombre}
+                              {op.opcion_nombre}: {op.valor_nombre}
                             </Badge>
                             <Input
                               type="number"
                               value={op.incremento_precio}
-                              onChange={(e) => handleUpdateOpcionalValue(item.id, op.opcion_id, Number(e.target.value) || 0)}
+                              onChange={(e) => handleUpdateOpcionValue(item.id, op.opcion_id, Number(e.target.value) || 0)}
                               className="h-6 w-24 text-xs"
                             />
                             <Button
                               variant="ghost"
                               size="icon"
                               className="h-5 w-5"
-                              onClick={() => handleRemoveOpcionalFromItem(item.id, op.opcion_id)}
+                              onClick={() => handleRemoveOpcionFromItem(item.id, op.opcion_id)}
                             >
                               <X size={10} />
                             </Button>
@@ -1244,29 +1137,7 @@ export function CotizacionFormView() {
                       </div>
                     )}
 
-                    {/* Add optional config selector */}
-                    <div className="pl-5">
-                      <Select
-                        value=""
-                        onValueChange={(val) => {
-                          const opcional = opcionalesPredefinidos.find(o => o.id === val);
-                          if (opcional) {
-                            handleAddOpcionalToItem(item.id, opcional);
-                          }
-                        }}
-                      >
-                        <SelectTrigger className="h-7 text-xs border-dashed">
-                          <SelectValue placeholder="+ Agregar opcional..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {opcionalesPredefinidos.filter(o => o.activo).map(op => (
-                            <SelectItem key={op.id} value={op.id}>
-                              {op.nombre} ({formatPrice(op.valor)})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+
 
                     {/* Price breakdown per item - editable base price */}
                     <div className="pl-5 space-y-1">
@@ -1367,6 +1238,14 @@ export function CotizacionFormView() {
                 </span>
               </div>
             )}
+            {totals.opcionalesTotal > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Opcionales</span>
+                <span className="text-sm font-semibold text-viv-sage-dark">
+                  +{formatPrice(totals.opcionalesTotal)}
+                </span>
+              </div>
+            )}
             <Separator />
             <div className="flex items-center justify-between">
               <span
@@ -1396,207 +1275,84 @@ export function CotizacionFormView() {
             >
               Configuraciones / Opciones
             </CardTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-viv-sage text-viv-sage-dark hover:bg-viv-sage/10"
-              onClick={addOpcion}
+            <Select
+              value=""
+              onValueChange={(val) => {
+                const opcional = opcionalesPredefinidos.find(o => o.id === val);
+                if (opcional) {
+                  handleAddOpcionalCotizacion(opcional);
+                }
+              }}
             >
-              <Plus size={14} className="mr-1" />
-              Agregar opción
-            </Button>
+              <SelectTrigger className="h-8 w-auto border-viv-sage text-viv-sage-dark hover:bg-viv-sage/10 text-xs">
+                <Plus size={14} className="mr-1" />
+                <SelectValue placeholder="Agregar opción" />
+              </SelectTrigger>
+              <SelectContent>
+                {opcionalesPredefinidos.filter(o => o.activo).map(op => (
+                  <SelectItem key={op.id} value={op.id}>
+                    {op.nombre} ({formatPrice(op.valor)})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardHeader>
         <CardContent>
-          {formOpciones.length === 0 ? (
-            <div className="text-center py-8">
+          {opcionalesCotizacion.length === 0 ? (
+            <div className="text-center py-6">
               <div className="mx-auto w-12 h-12 rounded-xl bg-viv-sage/10 flex items-center justify-center mb-3">
                 <Tag size={20} className="text-viv-sage/50" />
               </div>
               <p className="text-sm text-muted-foreground">
-                No hay opciones configuradas
+                Sin opciones adicionales
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                Agrega opciones como selección o casilla de verificación
+                Agrega aumentos de cuna, colchón u otros opcionales
               </p>
             </div>
           ) : (
-            <div className="space-y-4 max-h-96 overflow-y-auto pr-1">
-              {formOpciones.map((opcion, opIndex) => (
+            <div className="space-y-2">
+              {opcionalesCotizacion.map((op) => (
                 <div
-                  key={opcion.id}
-                  className="rounded-xl border border-border/60 bg-muted/20 p-4 space-y-3"
+                  key={op.id}
+                  className="flex items-center gap-2 rounded-xl border border-border/60 bg-muted/20 p-3"
                 >
-                  {/* Option header */}
-                  <div className="flex flex-wrap items-center gap-2">
-                    <GripVertical
-                      size={16}
-                      className="text-muted-foreground/50 flex-shrink-0"
-                    />
-                    <span className="text-xs text-muted-foreground font-medium">
-                      #{opIndex + 1}
-                    </span>
-
-                    {/* Option type select */}
-                    <Select
-                      value={opcion.tipo}
-                      onValueChange={(v: TipoOpcionInput) =>
-                        updateOpcion(opcion.id, 'tipo', v)
-                      }
-                    >
-                      <SelectTrigger className="h-8 w-[130px] text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(OPCION_TIPO_LABELS).map(([key, label]) => (
-                          <SelectItem key={key} value={key}>
-                            <span className="flex items-center gap-1.5">
-                              {OPCION_TIPO_ICONS[key as TipoOpcionInput]}
-                              {label}
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-
-                    {/* Option name */}
+                  {getOpcionIcon(op.nombre)}
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] border-viv-beige flex-shrink-0"
+                  >
+                    {op.nombre}
+                  </Badge>
+                  <div className="flex-1" />
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] text-muted-foreground">$</span>
                     <Input
-                      placeholder="Nombre de la opción"
-                      value={opcion.nombre}
-                      onChange={e =>
-                        updateOpcion(opcion.id, 'nombre', e.target.value)
-                      }
-                      className="h-8 flex-1 min-w-[120px] text-sm"
+                      type="number"
+                      value={op.valor}
+                      onChange={(e) => handleUpdateOpcionalCotizacion(op.id, Number(e.target.value) || 0)}
+                      className="h-7 w-28 text-xs text-right"
                     />
-
-                    {/* Required toggle */}
-                    <button
-                      onClick={() =>
-                        updateOpcion(opcion.id, 'requerida', !opcion.requerida)
-                      }
-                      className={`px-2.5 py-1 rounded-md text-[10px] font-semibold uppercase tracking-wider transition-colors flex-shrink-0 ${
-                        opcion.requerida
-                          ? 'bg-viv-rose/15 text-viv-rose-dark'
-                          : 'bg-muted text-muted-foreground'
-                      }`}
-                    >
-                      {opcion.requerida ? 'Requerido' : 'Opcional'}
-                    </button>
-
-                    {/* Remove option */}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 flex-shrink-0 text-muted-foreground hover:text-destructive"
-                      onClick={() => removeOpcion(opcion.id)}
-                      aria-label="Eliminar opción"
-                    >
-                      <Trash2 size={14} />
-                    </Button>
                   </div>
-
-                  {/* Option icon + type badge */}
-                  <div className="flex items-center gap-2 pl-7">
-                    <Badge
-                      variant="secondary"
-                      className={`text-[10px] ${
-                        opcion.tipo === 'select'
-                          ? 'bg-viv-bluegrey/15 text-viv-bluegrey'
-                          : opcion.tipo === 'checkbox'
-                          ? 'bg-viv-sage/15 text-viv-sage-dark'
-                          : 'bg-viv-beige/15 text-viv-beige'
-                      }`}
-                    >
-                      {OPCION_TIPO_ICONS[opcion.tipo]}
-                      <span className="ml-1">{OPCION_TIPO_LABELS[opcion.tipo]}</span>
-                    </Badge>
-                  </div>
-
-                  <Separator />
-
-                  {/* Option values */}
-                  <div className="space-y-2 pl-7">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs text-muted-foreground font-medium">
-                        Valores ({opcion.valores.length})
-                      </p>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 text-xs text-viv-sage-dark hover:text-viv-sage-dark hover:bg-viv-sage/10"
-                        onClick={() => addValorToOpcion(opcion.id)}
-                      >
-                        <Plus size={12} className="mr-1" />
-                        Agregar valor
-                      </Button>
-                    </div>
-
-                    {opcion.valores.length === 0 ? (
-                      <p className="text-xs text-muted-foreground/60 italic py-2">
-                        Sin valores. Agrega al menos un valor.
-                      </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {opcion.valores.map((valor) => (
-                          <div
-                            key={valor.id}
-                            className="flex items-center gap-2 bg-background rounded-lg p-2"
-                          >
-                            <Input
-                              placeholder="Nombre del valor"
-                              value={valor.nombre}
-                              onChange={e =>
-                                updateValorInOpcion(
-                                  opcion.id,
-                                  valor.id,
-                                  'nombre',
-                                  e.target.value
-                                )
-                              }
-                              className="h-8 flex-1 min-w-0 text-sm"
-                            />
-                            <div className="relative w-28 sm:w-32 flex-shrink-0">
-                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
-                                +$
-                              </span>
-                              <Input
-                                type="number"
-                                min="0"
-                                placeholder="0"
-                                value={
-                                  valor.incremento_precio > 0
-                                    ? valor.incremento_precio
-                                    : ''
-                                }
-                                onChange={e =>
-                                  updateValorInOpcion(
-                                    opcion.id,
-                                    valor.id,
-                                    'incremento_precio',
-                                    Number(e.target.value) || 0
-                                  )
-                                }
-                                className="h-8 pl-8 text-sm"
-                              />
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 flex-shrink-0 text-muted-foreground hover:text-destructive"
-                              onClick={() =>
-                                removeValorFromOpcion(opcion.id, valor.id)
-                              }
-                              aria-label="Eliminar valor"
-                            >
-                              <X size={14} />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 flex-shrink-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => handleRemoveOpcionalCotizacion(op.id)}
+                  >
+                    <X size={14} />
+                  </Button>
                 </div>
               ))}
+              <div className="flex items-center justify-between pt-2 border-t border-border/30">
+                <span className="text-xs text-muted-foreground font-medium">
+                  Total opcionales
+                </span>
+                <span className="text-sm font-bold text-viv-sage-dark">
+                  {formatPrice(opcionalesCotizacion.reduce((sum, o) => sum + o.valor, 0))}
+                </span>
+              </div>
             </div>
           )}
         </CardContent>
