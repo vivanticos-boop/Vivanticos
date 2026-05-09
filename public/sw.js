@@ -1,5 +1,5 @@
-const CACHE_NAME = 'vivanticos-v6';
-const APP_VERSION = '1.5.0';
+const CACHE_NAME = 'vivanticos-v7';
+const APP_VERSION = '1.6.0';
 
 const STATIC_ASSETS = [
   '/',
