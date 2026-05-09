@@ -50,8 +50,8 @@ const ESTADO_LABELS: Record<EstadoCotizacion, string> = {
 };
 
 const ESTADO_FLOW: Record<EstadoCotizacion, EstadoCotizacion[]> = {
-  borrador: ['enviada', 'transito'],
-  enviada: ['aprobada', 'rechazada'],
+  borrador: ['enviada', 'transito', 'pedido'],
+  enviada: ['aprobada', 'rechazada', 'pedido'],
   aprobada: [],
   rechazada: ['borrador'],
   transito: ['pedido', 'borrador'],
@@ -454,7 +454,7 @@ export function CotizacionDetalleView() {
                 Editar
               </Button>
 
-              {cotizacion.estado === 'transito' && (
+              {['transito', 'borrador', 'enviada'].includes(cotizacion.estado) && (
                 <Button
                   className="w-full justify-start bg-blue-500 hover:bg-blue-600 text-white"
                   onClick={() => handleEstadoChange('pedido')}
