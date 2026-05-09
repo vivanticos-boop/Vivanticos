@@ -155,7 +155,9 @@ export function CotizacionFormView() {
   const [viniloCargoDiseno, setViniloCargoDiseno] = useState<number>(300000);
 
   // Quotation-level opcionales
-  const [opcionalesCotizacion, setOpcionalesCotizacion] = useState<OpcionalCotizacion[]>([]);
+  const [opcionalesCotizacion, setOpcionalesCotizacion] = useState<OpcionalCotizacion[]>(
+    () => existingCotizacion?.opcionales || []
+  );
 
   const handleAddOpcionalCotizacion = (opcional: OpcionalPredefinido) => {
     const exists = opcionalesCotizacion.some(o => o.opcional_predefinido_id === opcional.id);

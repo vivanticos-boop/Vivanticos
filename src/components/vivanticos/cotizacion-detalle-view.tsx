@@ -299,9 +299,9 @@ export function CotizacionDetalleView() {
                             className="text-[10px] border-viv-beige"
                           >
                             {op.opcion_nombre}: {op.valor_nombre}
-                            {(op.incremento_precio || op.precio_incremento || 0) > 0 && (
+                            {op.incremento_precio > 0 && (
                               <span className="ml-1 text-viv-sage-dark font-semibold">
-                                +{formatPrice(op.incremento_precio || op.precio_incremento || 0)}
+                                +{formatPrice(op.incremento_precio)}
                               </span>
                             )}
                           </Badge>
@@ -319,7 +319,7 @@ export function CotizacionDetalleView() {
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Incrementos</span>
                           <span className="text-viv-sage-dark">
-                            +{formatPrice(item.opciones_seleccionadas.reduce((s, o) => s + (o.incremento_precio || o.precio_incremento || 0), 0))}
+                            +{formatPrice(item.opciones_seleccionadas.reduce((s, o) => s + o.incremento_precio, 0))}
                           </span>
                         </div>
                       )}

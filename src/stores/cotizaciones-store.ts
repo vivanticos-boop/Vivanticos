@@ -4,7 +4,7 @@
 // ==========================================
 
 import { create } from 'zustand';
-import type { Cotizacion, CotizacionItem, ItemOpcionSeleccionada, EstadoCotizacion } from '@/types';
+import type { Cotizacion, CotizacionItem, ItemOpcionSeleccionada, OpcionalCotizacion, EstadoCotizacion } from '@/types';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
 // --- Helper: Check if ID is a valid UUID ---
@@ -233,6 +233,14 @@ export const useCotizacionesStore = create<CotizacionState>((set, get) => {
           descuento_aplicado: item.descuento_aplicado || 0,
         }));
 
+        // Parse opcionales from JSONB column
+        const opcionalesFromSupabase: OpcionalCotizacion[] = (c.opcionales || []).map((op: any, idx: number) => ({
+          id: `${c.id}-opc-${idx}`,
+          opcional_predefinido_id: op.opcional_predefinido_id || '',
+          nombre: op.nombre || '',
+          valor: op.valor || 0,
+        }));
+
         return {
           id: c.id,
           cliente_nombre: c.cliente_nombre || '',
@@ -242,6 +250,7 @@ export const useCotizacionesStore = create<CotizacionState>((set, get) => {
           cliente_cedula: c.cliente_cedula || undefined,
           cliente_id: c.cliente_id || undefined,
           items: cotItems,
+          opcionales: opcionalesFromSupabase.length > 0 ? opcionalesFromSupabase : undefined,
           subtotal: c.subtotal || 0,
           descuento_total: c.descuento_total || 0,
           total: c.total || 0,
@@ -330,6 +339,11 @@ export const useCotizacionesStore = create<CotizacionState>((set, get) => {
         estado: c.estado,
         vendedor_id: isUUID(resolvedVendedorId) ? resolvedVendedorId : null,
         notas: c.notas || null,
+        opcionales: (c.opcionales || []).map(op => ({
+          opcional_predefinido_id: op.opcional_predefinido_id,
+          nombre: op.nombre,
+          valor: op.valor,
+        })),
       };
 
       let cotizacionId = c.id;
