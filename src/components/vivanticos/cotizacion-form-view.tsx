@@ -226,12 +226,15 @@ export function CotizacionFormView() {
     [productos, selectedProductoId]
   );
 
-  // Check if selected product belongs to Vinilos category
+  // Check if selected product belongs to Vinilos subcategory (not Molduras or Pinturas)
   const isViniloProduct = useMemo(() => {
     if (!selectedProducto) return false;
     const cat = categorias.find(c => c.id === selectedProducto.categoria_id);
-    return cat?.nombre?.toLowerCase().includes('vinilo') || false;
-  }, [selectedProducto, categorias]);
+    if (!cat?.nombre?.toLowerCase().includes('vinilo')) return false;
+    // Only products in the "Vinilos" subcategory get the calculator, not Molduras or Pinturas
+    const subcat = subcategorias.find(s => s.id === selectedProducto.subcategoria_id);
+    return subcat?.nombre?.toLowerCase().includes('vinilo') || false;
+  }, [selectedProducto, categorias, subcategorias]);
 
   // Options for selected product
   const selectedProductoOpciones = useMemo(
@@ -379,9 +382,11 @@ export function CotizacionFormView() {
     setProductSearch('');
 
     // Reset vinyl calculator and set constant from product price
+    // Only for products in the "Vinilos" subcategory (not Molduras or Pinturas)
     const prod = productos.find(p => p.id === productoId);
     const cat = prod ? categorias.find(c => c.id === prod.categoria_id) : null;
-    if (cat?.nombre?.toLowerCase().includes('vinilo') && prod) {
+    const subcat = prod ? subcategorias.find(s => s.id === prod.subcategoria_id) : null;
+    if (cat?.nombre?.toLowerCase().includes('vinilo') && subcat?.nombre?.toLowerCase().includes('vinilo') && prod) {
       setViniloAncho(0);
       setViniloAlto(0);
       setViniloParedCompleta(true);
@@ -1580,7 +1585,7 @@ export function CotizacionFormView() {
                 Sin opciones adicionales
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                Agrega aumentos de cuna, colchón u otros opcionales
+                Agrega aumentos de cuna, colchón, pintura, moldura u otros opcionales
               </p>
             </div>
           ) : (
