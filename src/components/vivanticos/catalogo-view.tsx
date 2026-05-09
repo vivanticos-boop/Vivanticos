@@ -46,19 +46,10 @@ export function CatalogoView() {
     return subcategorias.filter(s => s.categoria_id === filtroCategoria && s.activa);
   }, [filtroCategoria, subcategorias]);
 
-  // Compute discount percentage for badge
-  const getDiscountPercent = (base: number, descuento: number): number => {
-    if (base <= 0 || descuento <= 0) return 0;
-    return Math.round(((base - descuento) / base) * 100);
-  };
-
   // WhatsApp share from card: ONLY name + price + up to 4 images. NO technical info.
   const handleWhatsAppFromCard = (e: React.MouseEvent, producto: typeof productos[0]) => {
     e.stopPropagation();
-    const hasDiscount = producto.precio_descuento > 0;
-    const priceText = hasDiscount
-      ? `Precio: ~${formatPrice(producto.precio_base)}~ *${formatPrice(producto.precio_descuento)}*`
-      : `Precio: *${formatPrice(producto.precio_base)}*`;
+    const priceText = `Precio: *${formatPrice(producto.precio_base)}*`;
 
     let msg = `¡Hola! Te comparto información sobre *${producto.nombre}* de Vivanticos:\n\n` +
       `Código: ${producto.codigo}\n` +
@@ -83,10 +74,6 @@ export function CatalogoView() {
   // PDF share from card: ONLY name + price + up to 4 images. NO technical info.
   const handlePDFFromCard = (e: React.MouseEvent, producto: typeof productos[0]) => {
     e.stopPropagation();
-    const hasDiscount = producto.precio_descuento > 0;
-    const discountPercent = hasDiscount
-      ? Math.round(((producto.precio_base - producto.precio_descuento) / producto.precio_base) * 100)
-      : 0;
     const imagenes = producto.imagenes.slice(0, 4);
 
     const printWindow = window.open('', '_blank');
@@ -101,15 +88,7 @@ export function CatalogoView() {
         </div>`
       : `<div style="text-align:center;padding:40px 0;color:#999;font-size:48px;">🧸</div>`;
 
-    const priceHtml = hasDiscount
-      ? `<div style="margin-bottom:8px;">
-          <span style="text-decoration:line-through;color:#999;font-size:18px;">${formatPrice(producto.precio_base)}</span>
-          <span style="background:#e8a0b6;color:white;padding:4px 12px;border-radius:20px;font-size:13px;margin-left:10px;font-weight:600;">-${discountPercent}%</span>
-        </div>
-        <div style="font-size:36px;font-weight:800;color:#7c8c6e;font-family:'League Spartan',sans-serif;">
-          ${formatPrice(producto.precio_descuento)}
-        </div>`
-      : `<div style="font-size:36px;font-weight:800;color:#7c8c6e;font-family:'League Spartan',sans-serif;">
+    const priceHtml = `<div style="font-size:36px;font-weight:800;color:#7c8c6e;font-family:'League Spartan',sans-serif;">
           ${formatPrice(producto.precio_base)}
         </div>`;
 

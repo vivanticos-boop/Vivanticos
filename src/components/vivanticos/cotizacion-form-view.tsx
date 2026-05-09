@@ -140,7 +140,7 @@ export function CotizacionFormView() {
   const [optionSelections, setOptionSelections] = useState<Record<string, string>>({});
   const [checkboxSelections, setCheckboxSelections] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [descuentoSeleccionado, setDescuentoSeleccionado] = useState<0 | 5 | 10>(0); // 0%, 5%, 10%
+  const [descuentoSeleccionado, setDescuentoSeleccionado] = useState<number>(0); // $0, $100,000, $200,000
 
   // --- Vinyl calculator state ---
   const [viniloAncho, setViniloAncho] = useState<number>(0);
@@ -271,7 +271,7 @@ export function CotizacionFormView() {
 
     // Standard products — always start from precio_base
     const precioBase = selectedProducto.precio_base;
-    const descuentoMonto = Math.round(precioBase * (descuentoSeleccionado / 100));
+    const descuentoMonto = Math.min(descuentoSeleccionado, precioBase); // descuento fijo en pesos, no mayor al precio
     const base = precioBase - descuentoMonto;
 
     let incrementos = 0;
@@ -567,6 +567,19 @@ export function CotizacionFormView() {
         precio_unitario: nuevoPrecio,
         subtotal: nuevoSubtotal,
         precio_total_item: nuevoSubtotal - i.descuento_aplicado,
+      };
+    }));
+  };
+
+  // Apply discount to an already-added item
+  const handleApplyDescuentoToItem = (itemId: string, montoDescuento: number) => {
+    setItems(items.map(i => {
+      if (i.id !== itemId) return i;
+      const descuento = Math.min(montoDescuento, i.precio_unitario);
+      return {
+        ...i,
+        descuento_aplicado: descuento,
+        precio_total_item: i.subtotal - descuento,
       };
     }));
   };
@@ -1017,7 +1030,7 @@ export function CotizacionFormView() {
                 </div>
               )}
 
-              {/* Discount selector — only for non-vinilo products */}
+              {/* Discount selector — only for non-vinilo products, fixed amounts */}
               {!isViniloProduct && (
                 <div className="space-y-2">
                   <p
@@ -1027,13 +1040,13 @@ export function CotizacionFormView() {
                     Descuento
                   </p>
                   <div className="flex gap-2">
-                    {([0, 5, 10] as const).map(pct => {
-                      const precioConDesc = Math.round(selectedProducto.precio_base * (1 - pct / 100));
-                      const isSelected = descuentoSeleccionado === pct;
+                    {[0, 100000, 200000].map(monto => {
+                      const precioConDesc = selectedProducto.precio_base - Math.min(monto, selectedProducto.precio_base);
+                      const isSelected = descuentoSeleccionado === monto;
                       return (
                         <button
-                          key={pct}
-                          onClick={() => setDescuentoSeleccionado(pct)}
+                          key={monto}
+                          onClick={() => setDescuentoSeleccionado(monto)}
                           className={`flex-1 rounded-xl border p-2.5 text-center transition-all ${
                             isSelected
                               ? 'border-viv-sage bg-viv-sage/10 shadow-sm'
@@ -1041,7 +1054,7 @@ export function CotizacionFormView() {
                           }`}
                         >
                           <p className={`text-xs font-bold ${isSelected ? 'text-viv-sage-dark' : 'text-muted-foreground'}`}>
-                            {pct === 0 ? 'Base' : `-${pct}%`}
+                            {monto === 0 ? 'Base' : `-${formatPrice(monto)}`}
                           </p>
                           <p className={`text-[11px] font-semibold mt-0.5 ${isSelected ? 'text-viv-sage-dark' : 'text-foreground'}`}>
                             {formatPrice(precioConDesc)}
@@ -1159,7 +1172,7 @@ export function CotizacionFormView() {
                 {descuentoSeleccionado > 0 && (
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">
-                      Descuento -{descuentoSeleccionado}%
+                      Descuento -{formatPrice(descuentoSeleccionado)}
                     </span>
                     <span className="text-xs font-semibold text-viv-rose-dark">
                       -{formatPrice(calculateItemPrice.descuento)}
@@ -1449,9 +1462,38 @@ export function CotizacionFormView() {
                           <span className="font-medium text-viv-sage-dark">+{formatPrice(itemIncrementos)}</span>
                         </div>
                       )}
+
+                      {/* Discount buttons for already-added items */}
+                      <div className="pt-1 pb-0.5">
+                        <div className="flex gap-1.5">
+                          {[0, 100000, 200000].map(monto => {
+                            const isActive = item.descuento_aplicado === monto || (monto === 0 && item.descuento_aplicado === 0);
+                            const precioResultante = item.precio_unitario - Math.min(monto, item.precio_unitario);
+                            return (
+                              <button
+                                key={monto}
+                                onClick={() => handleApplyDescuentoToItem(item.id, monto)}
+                                className={`flex-1 rounded-lg border px-1.5 py-1 text-center transition-all text-[10px] ${
+                                  isActive
+                                    ? 'border-viv-rose bg-viv-rose/10 shadow-sm'
+                                    : 'border-border/50 bg-muted/20 hover:border-viv-rose/30'
+                                }`}
+                              >
+                                <p className={`font-bold ${isActive ? 'text-viv-rose-dark' : 'text-muted-foreground'}`}>
+                                  {monto === 0 ? 'Sin desc.' : `- ${formatPrice(monto)}`}
+                                </p>
+                                <p className={`font-semibold mt-0.5 ${isActive ? 'text-viv-rose-dark' : 'text-foreground'}`}>
+                                  {formatPrice(precioResultante)}
+                                </p>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
                       {item.descuento_aplicado > 0 && (
                         <div className="flex items-center justify-between text-[11px]">
-                          <span className="text-muted-foreground">Descuento</span>
+                          <span className="text-muted-foreground">Descuento aplicado</span>
                           <span className="font-medium text-viv-rose-dark">-{formatPrice(item.descuento_aplicado)}</span>
                         </div>
                       )}

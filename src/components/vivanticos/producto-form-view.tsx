@@ -657,11 +657,7 @@ export function ProductoFormView() {
                   <span className="text-2xl font-bold text-viv-sage-dark" style={{ fontFamily: 'var(--font-league-spartan)' }}>
                     {formatPrice(precioBaseNum)}
                   </span>
-                  <span className="text-xs text-muted-foreground">Precio de venta</span>
-                </div>
-                <div className="flex gap-4 mt-2 text-[11px] text-muted-foreground">
-                  <span>5% desc: <strong className="text-viv-sage-dark">{formatPrice(Math.round(precioBaseNum * 0.95))}</strong></span>
-                  <span>10% desc: <strong className="text-viv-sage-dark">{formatPrice(Math.round(precioBaseNum * 0.90))}</strong></span>
+                  <span className="text-xs text-muted-foreground">Precio base</span>
                 </div>
               </div>
             )}
