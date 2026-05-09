@@ -21,7 +21,6 @@ import {
 import { formatPrice, generateId } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { Cotizacion, ItemOpcionSeleccionada, OpcionalPredefinido, OpcionalCotizacion } from '@/types';
-import { TIPO_PRODUCTO_LABELS } from '@/types';
 
 // Local form item type
 interface FormItem {
@@ -29,7 +28,7 @@ interface FormItem {
   producto_id: string;
   producto_nombre: string;
   cantidad: number;
-  precio_unitario: number; // effective base price (precio_descuento if set, else precio_base)
+  precio_unitario: number; // price after discount
   opciones_seleccionadas: ItemOpcionSeleccionada[];
   subtotal: number; // precio_unitario + sum of incrementos
   configuracion: Record<string, any>;
@@ -141,6 +140,7 @@ export function CotizacionFormView() {
   const [optionSelections, setOptionSelections] = useState<Record<string, string>>({});
   const [checkboxSelections, setCheckboxSelections] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [descuentoSeleccionado, setDescuentoSeleccionado] = useState<0 | 5 | 10>(0); // 0%, 5%, 10%
 
   // --- Vinyl calculator state ---
   const [viniloAncho, setViniloAncho] = useState<number>(0);
@@ -269,10 +269,10 @@ export function CotizacionFormView() {
       }
     }
 
-    // Standard products
-    const base = selectedProducto.precio_descuento > 0 && selectedProducto.precio_descuento < selectedProducto.precio_base
-      ? selectedProducto.precio_descuento
-      : selectedProducto.precio_base;
+    // Standard products — always start from precio_base
+    const precioBase = selectedProducto.precio_base;
+    const descuentoMonto = Math.round(precioBase * (descuentoSeleccionado / 100));
+    const base = precioBase - descuentoMonto;
 
     let incrementos = 0;
     for (const opcion of selectedProductoOpciones) {
@@ -290,11 +290,10 @@ export function CotizacionFormView() {
       }
     }
 
-    const descuento = selectedProducto.descuento_base || 0;
-    const total = base + incrementos - descuento;
+    const total = base + incrementos;
 
-    return { base, incrementos, descuento, total };
-  }, [selectedProducto, isViniloProduct, viniloAncho, viniloAlto, viniloParedCompleta, viniloAltoPintura, viniloLlevaMoldura, viniloAltoVinilo, viniloConstante, viniloCargoDiseno, selectedProductoOpciones, optionSelections, checkboxSelections, getValoresByOpcion]);
+    return { base, incrementos, descuento: descuentoMonto, total };
+  }, [selectedProducto, isViniloProduct, viniloAncho, viniloAlto, viniloParedCompleta, viniloAltoPintura, viniloLlevaMoldura, viniloAltoVinilo, viniloConstante, viniloCargoDiseno, descuentoSeleccionado, selectedProductoOpciones, optionSelections, checkboxSelections, getValoresByOpcion]);
 
   // Build opciones_seleccionadas for saving
   const buildOpcionesSeleccionadas = (): ItemOpcionSeleccionada[] => {
@@ -380,6 +379,7 @@ export function CotizacionFormView() {
     setOptionSelections({});
     setCheckboxSelections({});
     setProductSearch('');
+    setDescuentoSeleccionado(0);
 
     // Reset vinyl calculator and set constant from product price
     // Only for products in the "Vinilos" subcategory (not Molduras or Pinturas)
@@ -822,10 +822,6 @@ export function CotizacionFormView() {
                     <Badge className="bg-viv-sage/15 text-viv-sage-dark border-0 text-[10px]">
                       Vinilo x m²
                     </Badge>
-                  ) : selectedProducto.precio_descuento > 0 && selectedProducto.precio_descuento < selectedProducto.precio_base ? (
-                    <Badge className="bg-viv-rose/15 text-viv-rose-dark border-0 text-[10px]">
-                      Oferta
-                    </Badge>
                   ) : (
                     <Badge variant="outline" className="text-[10px] border-viv-sage/30 text-viv-sage-dark">
                       {formatPrice(selectedProducto.precio_base)}
@@ -1021,6 +1017,42 @@ export function CotizacionFormView() {
                 </div>
               )}
 
+              {/* Discount selector — only for non-vinilo products */}
+              {!isViniloProduct && (
+                <div className="space-y-2">
+                  <p
+                    className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
+                    style={{ fontFamily: 'var(--font-league-spartan)' }}
+                  >
+                    Descuento
+                  </p>
+                  <div className="flex gap-2">
+                    {([0, 5, 10] as const).map(pct => {
+                      const precioConDesc = Math.round(selectedProducto.precio_base * (1 - pct / 100));
+                      const isSelected = descuentoSeleccionado === pct;
+                      return (
+                        <button
+                          key={pct}
+                          onClick={() => setDescuentoSeleccionado(pct)}
+                          className={`flex-1 rounded-xl border p-2.5 text-center transition-all ${
+                            isSelected
+                              ? 'border-viv-sage bg-viv-sage/10 shadow-sm'
+                              : 'border-border/50 bg-muted/20 hover:border-viv-sage/30'
+                          }`}
+                        >
+                          <p className={`text-xs font-bold ${isSelected ? 'text-viv-sage-dark' : 'text-muted-foreground'}`}>
+                            {pct === 0 ? 'Base' : `-${pct}%`}
+                          </p>
+                          <p className={`text-[11px] font-semibold mt-0.5 ${isSelected ? 'text-viv-sage-dark' : 'text-foreground'}`}>
+                            {formatPrice(precioConDesc)}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Options Section */}
               {selectedProductoOpciones.length > 0 && (
                 <div className="space-y-3">
@@ -1122,23 +1154,23 @@ export function CotizacionFormView() {
                 </p>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">Precio base</span>
-                  <span className="text-xs font-semibold">{formatPrice(calculateItemPrice.base)}</span>
+                  <span className="text-xs font-semibold">{formatPrice(selectedProducto.precio_base)}</span>
                 </div>
+                {descuentoSeleccionado > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">
+                      Descuento -{descuentoSeleccionado}%
+                    </span>
+                    <span className="text-xs font-semibold text-viv-rose-dark">
+                      -{formatPrice(calculateItemPrice.descuento)}
+                    </span>
+                  </div>
+                )}
                 {calculateItemPrice.incrementos > 0 && (
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">Incrementos</span>
                     <span className="text-xs font-semibold text-viv-sage-dark">
                       +{formatPrice(calculateItemPrice.incrementos)}
-                    </span>
-                  </div>
-                )}
-                {calculateItemPrice.descuento > 0 && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">
-                      Descuento ({TIPO_PRODUCTO_LABELS[selectedProducto.tipo_producto] || selectedProducto.tipo_producto})
-                    </span>
-                    <span className="text-xs font-semibold text-viv-rose-dark">
-                      -{formatPrice(calculateItemPrice.descuento)}
                     </span>
                   </div>
                 )}
@@ -1311,20 +1343,9 @@ export function CotizacionFormView() {
                             </p>
                           </div>
                           <div className="text-right flex-shrink-0">
-                            {producto.precio_descuento > 0 && producto.precio_descuento < producto.precio_base ? (
-                              <>
-                                <p className="text-[10px] text-muted-foreground line-through">
-                                  {formatPrice(producto.precio_base)}
-                                </p>
-                                <p className="text-sm font-bold text-viv-sage-dark">
-                                  {formatPrice(producto.precio_descuento)}
-                                </p>
-                              </>
-                            ) : (
-                              <p className="text-sm font-bold text-viv-sage-dark">
-                                {formatPrice(producto.precio_base)}
-                              </p>
-                            )}
+                            <p className="text-sm font-bold text-viv-sage-dark">
+                              {formatPrice(producto.precio_base)}
+                            </p>
                           </div>
                         </button>
                       ))
@@ -1364,11 +1385,6 @@ export function CotizacionFormView() {
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="text-xs text-muted-foreground font-medium">#{index + 1}</span>
                         <span className="text-sm font-semibold truncate">{item.producto_nombre}</span>
-                        {producto && producto.precio_descuento > 0 && producto.precio_descuento < producto.precio_base && (
-                          <Badge className="bg-viv-rose/15 text-viv-rose-dark border-0 text-[10px]">
-                            Oferta
-                          </Badge>
-                        )}
                       </div>
                       <Button
                         variant="ghost"

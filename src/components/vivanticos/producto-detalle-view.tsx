@@ -41,11 +41,7 @@ export function ProductoDetalleView() {
   const subcategoria = subcategorias.find(s => s.id === producto.subcategoria_id);
   const opciones = getOpcionesByProducto(producto.id);
 
-  const hasDiscount = producto.precio_descuento > 0;
-  const precioFinal = hasDiscount ? producto.precio_descuento : producto.precio_base;
-  const discountPercent = hasDiscount
-    ? Math.round(((producto.precio_base - producto.precio_descuento) / producto.precio_base) * 100)
-    : 0;
+  const precioFinal = producto.precio_base;
 
   // Up to 4 images
   const imagenes = producto.imagenes.slice(0, 4);
@@ -61,9 +57,7 @@ export function ProductoDetalleView() {
   // WhatsApp share: ONLY name, price (with discount if applies), up to 4 image URLs
   // NO description, NO medidas, NO material, NO garantia
   const handleWhatsApp = () => {
-    const priceText = hasDiscount
-      ? `Precio: ~${formatPrice(producto.precio_base)}~ *${formatPrice(producto.precio_descuento)}*`
-      : `Precio: *${formatPrice(producto.precio_base)}*`;
+    const priceText = `Precio: *${formatPrice(producto.precio_base)}*`;
 
     let msg = `¡Hola! Te comparto información sobre *${producto.nombre}* de Vivanticos:\n\n` +
       `Código: ${producto.codigo}\n` +
@@ -99,15 +93,7 @@ export function ProductoDetalleView() {
         </div>`
       : `<div style="text-align:center;padding:40px 0;color:#999;font-size:48px;">🧸</div>`;
 
-    const priceHtml = hasDiscount
-      ? `<div style="margin-bottom:8px;">
-          <span style="text-decoration:line-through;color:#999;font-size:18px;">${formatPrice(producto.precio_base)}</span>
-          <span style="background:#e8a0b6;color:white;padding:4px 12px;border-radius:20px;font-size:13px;margin-left:10px;font-weight:600;">-${discountPercent}%</span>
-        </div>
-        <div style="font-size:36px;font-weight:800;color:#7c8c6e;font-family:'League Spartan',sans-serif;">
-          ${formatPrice(producto.precio_descuento)}
-        </div>`
-      : `<div style="font-size:36px;font-weight:800;color:#7c8c6e;font-family:'League Spartan',sans-serif;">
+    const priceHtml = `<div style="font-size:36px;font-weight:800;color:#7c8c6e;font-family:'League Spartan',sans-serif;">
           ${formatPrice(producto.precio_base)}
         </div>`;
 
@@ -278,36 +264,15 @@ export function ProductoDetalleView() {
             <CardContent className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  {hasDiscount ? (
-                    <>
-                      <p className="text-xs text-muted-foreground line-through">
-                        {formatPrice(producto.precio_base)}
-                      </p>
-                      <p
-                        className="text-3xl font-bold text-viv-sage-dark"
-                        style={{ fontFamily: 'var(--font-league-spartan)' }}
-                      >
-                        {formatPrice(producto.precio_descuento)}
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-xs text-muted-foreground">Precio</p>
-                      <p
-                        className="text-3xl font-bold text-viv-sage-dark"
-                        style={{ fontFamily: 'var(--font-league-spartan)' }}
-                      >
-                        {formatPrice(producto.precio_base)}
-                      </p>
-                    </>
-                  )}
+                  <p className="text-xs text-muted-foreground">Precio</p>
+                  <p
+                    className="text-3xl font-bold text-viv-sage-dark"
+                    style={{ fontFamily: 'var(--font-league-spartan)' }}
+                  >
+                    {formatPrice(producto.precio_base)}
+                  </p>
                 </div>
                 <div className="flex flex-col items-end gap-2 shrink-0">
-                  {hasDiscount && (
-                    <Badge className="bg-viv-rose text-white border-0 text-xs font-bold">
-                      <Tag size={12} className="mr-1" />-{discountPercent}%
-                    </Badge>
-                  )}
                   {producto.entrega_inmediata && (
                     <Badge className="bg-viv-sage text-white border-0 text-xs">
                       <Truck size={12} className="mr-1" />

@@ -145,14 +145,11 @@ export function ProductoFormView() {
   const [material, setMaterial] = useState(() => initialState.material);
   const [garantia, setGarantia] = useState(() => initialState.garantia);
   const [precioBase, setPrecioBase] = useState(() => initialState.precioBase);
-  const [precioDescuento, setPrecioDescuento] = useState(() => initialState.precioDescuento);
   const [entregaInmediata, setEntregaInmediata] = useState(() => initialState.entregaInmediata);
   const [imagenes, setImagenes] = useState<string[]>(() => initialState.imagenes);
   const [activo, setActivo] = useState(() => initialState.activo);
   const [formOpciones, setFormOpciones] = useState<FormOpcion[]>(() => initialState.formOpciones);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [tipoProducto, setTipoProducto] = useState<TipoProducto>(() => initialState.tipoProducto);
-  const [descuentoBase, setDescuentoBase] = useState(() => initialState.descuentoBase);
 
   // --- Image upload: Direct to Cloudinary with signed signature ---
   const uploadingStates = useState<Record<number, boolean>>({});
@@ -255,10 +252,6 @@ export function ProductoFormView() {
 
   // Computed price values for preview
   const precioBaseNum = Number(precioBase) || 0;
-  const precioDescuentoNum = Number(precioDescuento) || 0;
-  const hasDescuento = precioDescuentoNum > 0 && precioDescuentoNum < precioBaseNum;
-  const ahorro = hasDescuento ? precioBaseNum - precioDescuentoNum : 0;
-  const porcentajeDescuento = hasDescuento ? Math.round((ahorro / precioBaseNum) * 100) : 0;
 
   // Permission check
   if (!canManage) {
@@ -389,8 +382,6 @@ export function ProductoFormView() {
     setIsSubmitting(true);
 
     const now = new Date().toISOString();
-    const precioDescuentoValue = precioDescuentoNum > 0 ? precioDescuentoNum : 0;
-
     const productoData: Producto = {
       id: isEditing ? existingProducto!.id : generateId(),
       codigo: codigo.trim(),
@@ -402,9 +393,9 @@ export function ProductoFormView() {
       material: material.trim(),
       garantia: garantia.trim(),
       precio_base: Number(precioBase),
-      precio_descuento: precioDescuentoValue,
-      tipo_producto: tipoProducto,
-      descuento_base: Number(descuentoBase) || 0,
+      precio_descuento: 0,
+      tipo_producto: 'otro',
+      descuento_base: 0,
       entrega_inmediata: entregaInmediata,
       imagenes,
       activo,
@@ -631,150 +622,50 @@ export function ProductoFormView() {
         </CardContent>
       </Card>
 
-      {/* ========== Precio y Descuento ========== */}
+      {/* ========== Precio ========== */}
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-3">
           <CardTitle
             className="text-base"
             style={{ fontFamily: 'var(--font-league-spartan)' }}
           >
-            Precio y Descuento
+            Precio
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Precio base */}
-            <div className="space-y-1.5">
-              <Label htmlFor="precioBase" className="text-xs font-semibold uppercase tracking-wider">
-                Precio Base (COP) *
-              </Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                  $
-                </span>
-                <Input
-                  id="precioBase"
-                  type="number"
-                  min="0"
-                  placeholder="0"
-                  value={precioBase}
-                  onChange={e => setPrecioBase(e.target.value)}
-                  className="h-10 pl-7"
-                />
-              </div>
-              {precioBaseNum > 0 && (
-                <p className="text-xs text-viv-sage-dark font-semibold">
-                  {formatPrice(precioBaseNum)}
-                </p>
-              )}
+          <div className="space-y-1.5">
+            <Label htmlFor="precioBase" className="text-xs font-semibold uppercase tracking-wider">
+              Precio Base (COP) *
+            </Label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                $
+              </span>
+              <Input
+                id="precioBase"
+                type="number"
+                min="0"
+                placeholder="0"
+                value={precioBase}
+                onChange={e => setPrecioBase(e.target.value)}
+                className="h-10 pl-7"
+              />
             </div>
-
-            {/* Precio con descuento */}
-            <div className="space-y-1.5">
-              <Label htmlFor="precioDescuento" className="text-xs font-semibold uppercase tracking-wider">
-                Precio con Descuento (COP)
-              </Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                  $
-                </span>
-                <Input
-                  id="precioDescuento"
-                  type="number"
-                  min="0"
-                  placeholder="0 = sin descuento"
-                  value={precioDescuento}
-                  onChange={e => setPrecioDescuento(e.target.value)}
-                  className="h-10 pl-7"
-                />
-              </div>
-              {precioDescuentoNum > 0 && (
-                <p className="text-xs text-viv-rose-dark font-semibold">
-                  {formatPrice(precioDescuentoNum)}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Tipo de Producto & Descuento Base */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Tipo de Producto */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold uppercase tracking-wider">
-                Tipo de Producto *
-              </Label>
-              <Select value={tipoProducto} onValueChange={(v: TipoProducto) => setTipoProducto(v)}>
-                <SelectTrigger className="h-10">
-                  <SelectValue placeholder="Seleccionar tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(TIPO_PRODUCTO_LABELS).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-[10px] text-muted-foreground">
-                Determina el descuento automático en cotizaciones
-              </p>
-            </div>
-
-            {/* Descuento Base */}
-            <div className="space-y-1.5">
-              <Label htmlFor="descuentoBase" className="text-xs font-semibold uppercase tracking-wider">
-                Descuento Automático (COP)
-              </Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                  $
-                </span>
-                <Input
-                  id="descuentoBase"
-                  type="number"
-                  min="0"
-                  placeholder="0 = sin descuento automático"
-                  value={descuentoBase}
-                  onChange={e => setDescuentoBase(e.target.value)}
-                  className="h-10 pl-7"
-                />
-              </div>
-              {Number(descuentoBase) > 0 && (
-                <p className="text-xs text-viv-rose-dark font-semibold">
-                  Descuento automático: {formatPrice(Number(descuentoBase))} por tipo &quot;{TIPO_PRODUCTO_LABELS[tipoProducto]}&quot;
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Price preview */}
-          {precioBaseNum > 0 && (
-            <div className="rounded-xl bg-viv-beige/10 border border-viv-beige/30 p-4 space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Vista previa de precio
-              </p>
-              <div className="flex flex-wrap items-baseline gap-3">
-                {hasDescuento ? (
-                  <>
-                    <span className="text-2xl font-bold text-viv-sage-dark" style={{ fontFamily: 'var(--font-league-spartan)' }}>
-                      {formatPrice(precioDescuentoNum)}
-                    </span>
-                    <span className="text-sm text-muted-foreground line-through">
-                      {formatPrice(precioBaseNum)}
-                    </span>
-                    <Badge className="bg-viv-rose/15 text-viv-rose-dark border-0 text-xs font-bold">
-                      <Tag size={12} className="mr-1" />
-                      -{porcentajeDescuento}% · Ahorras {formatPrice(ahorro)}
-                    </Badge>
-                  </>
-                ) : (
+            {precioBaseNum > 0 && (
+              <div className="rounded-xl bg-viv-beige/10 border border-viv-beige/30 p-3">
+                <div className="flex flex-wrap items-baseline gap-3">
                   <span className="text-2xl font-bold text-viv-sage-dark" style={{ fontFamily: 'var(--font-league-spartan)' }}>
                     {formatPrice(precioBaseNum)}
                   </span>
-                )}
+                  <span className="text-xs text-muted-foreground">Precio de venta</span>
+                </div>
+                <div className="flex gap-4 mt-2 text-[11px] text-muted-foreground">
+                  <span>5% desc: <strong className="text-viv-sage-dark">{formatPrice(Math.round(precioBaseNum * 0.95))}</strong></span>
+                  <span>10% desc: <strong className="text-viv-sage-dark">{formatPrice(Math.round(precioBaseNum * 0.90))}</strong></span>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Entrega Inmediata toggle */}
           <div className="flex items-center justify-between rounded-xl bg-muted/30 p-4">

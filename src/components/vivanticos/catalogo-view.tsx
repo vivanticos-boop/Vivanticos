@@ -355,12 +355,6 @@ export function CatalogoView() {
         /* ─── Grid Mode ─── */
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
           {filtered.map(producto => {
-            const hasDiscount = producto.precio_descuento > 0;
-            const discountPct = getDiscountPercent(
-              producto.precio_base,
-              producto.precio_descuento
-            );
-
             return (
               <Card
                 key={producto.id}
@@ -382,13 +376,6 @@ export function CatalogoView() {
                     <span className="text-5xl opacity-30 group-hover:opacity-50 transition-opacity">
                       🧸
                     </span>
-                  )}
-
-                  {/* Discount badge on image corner */}
-                  {hasDiscount && (
-                    <Badge className="absolute top-2 right-2 bg-viv-rose text-white border-0 text-[10px] font-bold px-2 py-0.5">
-                      -{discountPct}%
-                    </Badge>
                   )}
 
                   {/* Entrega inmediata badge */}
@@ -431,26 +418,12 @@ export function CatalogoView() {
 
                   {/* Price display */}
                   <div className="mt-1">
-                    {hasDiscount ? (
-                      <div className="flex flex-col">
-                        <span className="text-xs text-muted-foreground line-through">
-                          {formatPrice(producto.precio_base)}
-                        </span>
-                        <span
-                          className="text-base font-bold text-viv-rose"
-                          style={{ fontFamily: 'var(--font-league-spartan)' }}
-                        >
-                          {formatPrice(producto.precio_descuento)}
-                        </span>
-                      </div>
-                    ) : (
-                      <span
-                        className="text-base font-bold text-viv-sage-dark"
-                        style={{ fontFamily: 'var(--font-league-spartan)' }}
-                      >
-                        {formatPrice(producto.precio_base)}
-                      </span>
-                    )}
+                    <span
+                      className="text-base font-bold text-viv-sage-dark"
+                      style={{ fontFamily: 'var(--font-league-spartan)' }}
+                    >
+                      {formatPrice(producto.precio_base)}
+                    </span>
                   </div>
                 </CardContent>
               </Card>
@@ -461,12 +434,6 @@ export function CatalogoView() {
         /* ─── List Mode ─── */
         <div className="space-y-2">
           {filtered.map(producto => {
-            const hasDiscount = producto.precio_descuento > 0;
-            const discountPct = getDiscountPercent(
-              producto.precio_base,
-              producto.precio_descuento
-            );
-
             return (
               <Card
                 key={producto.id}
@@ -488,12 +455,6 @@ export function CatalogoView() {
                     ) : (
                       <span className="text-2xl sm:text-3xl">🧸</span>
                     )}
-                    {/* Discount badge on thumbnail */}
-                    {hasDiscount && (
-                      <Badge className="absolute -top-1 -right-1 bg-viv-rose text-white border-0 text-[9px] font-bold px-1.5 py-0">
-                        -{discountPct}%
-                      </Badge>
-                    )}
                   </div>
 
                   {/* Info */}
@@ -505,26 +466,12 @@ export function CatalogoView() {
                       {producto.nombre}
                     </h3>
                     <div className="flex items-center gap-2 mt-0.5">
-                      {hasDiscount ? (
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="text-xs text-muted-foreground line-through">
-                            {formatPrice(producto.precio_base)}
-                          </span>
-                          <span
-                            className="text-sm font-bold text-viv-rose"
-                            style={{ fontFamily: 'var(--font-league-spartan)' }}
-                          >
-                            {formatPrice(producto.precio_descuento)}
-                          </span>
-                        </div>
-                      ) : (
-                        <span
-                          className="text-sm font-bold text-viv-sage-dark"
-                          style={{ fontFamily: 'var(--font-league-spartan)' }}
-                        >
-                          {formatPrice(producto.precio_base)}
-                        </span>
-                      )}
+                      <span
+                        className="text-sm font-bold text-viv-sage-dark"
+                        style={{ fontFamily: 'var(--font-league-spartan)' }}
+                      >
+                        {formatPrice(producto.precio_base)}
+                      </span>
                     </div>
                   </div>
 
@@ -535,11 +482,6 @@ export function CatalogoView() {
                         <Truck size={10} />
                         <span className="hidden sm:inline">Entrega inmediata</span>
                         <span className="sm:hidden">Inmediata</span>
-                      </Badge>
-                    )}
-                    {hasDiscount && (
-                      <Badge className="bg-viv-rose text-white border-0 text-[10px]">
-                        Oferta
                       </Badge>
                     )}
                     {/* Quick share in list mode */}
