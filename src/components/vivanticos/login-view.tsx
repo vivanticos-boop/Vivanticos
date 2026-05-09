@@ -90,7 +90,7 @@ export function LoginView() {
           <div className="inline-flex items-center justify-center w-40 h-40 rounded-2xl bg-white shadow-md shadow-viv-beige/20 overflow-hidden border border-viv-beige/30">
             <img
               src="/logo-vivanticos.jpeg"
-              alt="Vivanticos - Mobiliario Infantil"
+              alt="Vivanticos - Muebles y Decoración Infantil"
               className="w-full h-full object-contain p-2"
             />
           </div>

@@ -67,7 +67,7 @@ export function CatalogoView() {
       });
     }
 
-    msg += `\n— Vivanticos · Mobiliario Infantil 💛`;
+    msg += `\n— Vivanticos · Muebles y Decoración Infantil 💛`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
@@ -118,7 +118,7 @@ export function CatalogoView() {
       <img src="/logo-vivanticos.jpeg" style="width:56px;height:56px;border-radius:12px;object-fit:contain;" />
       <div>
         <div style="font-family:'League Spartan',sans-serif;font-size:22px;font-weight:800;color:#7c8c6e;">Vivanticos</div>
-        <div style="font-size:12px;color:#999;letter-spacing:2px;text-transform:uppercase;">Mobiliario Infantil</div>
+        <div style="font-size:12px;color:#999;letter-spacing:2px;text-transform:uppercase;">Muebles y Decoración Infantil</div>
       </div>
     </div>
     <div style="margin-bottom:8px;">
@@ -134,7 +134,7 @@ export function CatalogoView() {
       ${entregaBadge}
     </div>
     <div style="margin-top:40px;padding-top:20px;border-top:1px solid #eee;text-align:center;">
-      <div style="font-size:12px;color:#bbb;">Vivanticos · Mobiliario Infantil · www.vivanticos.com</div>
+      <div style="font-size:12px;color:#bbb;">Vivanticos · Muebles y Decoración Infantil · www.vivanticos.com</div>
     </div>
   </div>
   <script>window.onload=function(){window.print();}</script>

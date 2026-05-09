@@ -57,7 +57,7 @@ export function Sidebar({ onClose }: SidebarProps) {
             <h1 className="text-lg font-bold" style={{ fontFamily: 'var(--font-league-spartan)' }}>
               Vivanticos
             </h1>
-            <p className="text-[10px] text-muted-foreground -mt-0.5">Mobiliario Infantil</p>
+            <p className="text-[10px] text-muted-foreground -mt-0.5">Muebles y Decoración Infantil</p>
           </div>
         </div>
         {onClose && (

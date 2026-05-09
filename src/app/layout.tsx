@@ -27,7 +27,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Vivanticos - Mobiliario Infantil",
+  title: "Vivanticos - Muebles y Decoración Infantil",
   description: "Sistema de gestión para Vivanticos - Catálogo, cotizaciones, entregas y más.",
   keywords: ["Vivanticos", "mobiliario infantil", "cunas", "camas", "muebles bebé"],
   manifest: "/manifest.json",
@@ -47,7 +47,7 @@ export const metadata: Metadata = {
     ],
   },
   openGraph: {
-    title: "Vivanticos - Mobiliario Infantil",
+    title: "Vivanticos - Muebles y Decoración Infantil",
     description: "Catálogo, cotizaciones y gestión de entregas",
     images: ["/logo-vivanticos.jpeg"],
   },
