@@ -297,27 +297,30 @@ export function EntregasView() {
                     ${isCurrentMonth ? 'text-foreground' : 'text-muted-foreground/40'}
                     ${isSelected ? 'bg-viv-sage/20 ring-2 ring-viv-sage/50' : 'hover:bg-muted/60'}
                     ${isTodayDate && !isSelected ? 'bg-viv-sage/10 font-bold' : ''}
+                    ${dayEntregas.length > 0 && !isSelected ? 'bg-viv-sage/8' : ''}
                   `}
                   aria-label={`${format(day, 'd')} de ${format(day, 'MMMM', { locale: es })}`}
                 >
                   <span
                     className={`text-xs md:text-sm leading-none ${
                       isTodayDate ? 'text-viv-sage-dark font-bold' : ''
+                    } ${
+                      dayEntregas.length > 0 && !isSelected ? 'font-bold' : ''
                     }`}
                   >
                     {format(day, 'd')}
                   </span>
-                  {/* Delivery dots */}
+                  {/* Delivery indicators - more visible */}
                   {dayEntregas.length > 0 && (
-                    <div className="flex items-center gap-0.5 mt-0.5">
+                    <div className="flex items-center gap-[3px] mt-1">
                       {pendienteCount > 0 && (
-                        <span className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-[#9BACAD]" />
+                        <span className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full bg-[#9BACAD] ring-1 ring-[#9BACAD]/40 shadow-sm" />
                       )}
                       {entregadoCount > 0 && (
-                        <span className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-[#B3BA95]" />
+                        <span className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full bg-[#B3BA95] ring-1 ring-[#B3BA95]/40 shadow-sm" />
                       )}
                       {completadoCount > 0 && (
-                        <span className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-[#D7C1A8]" />
+                        <span className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full bg-[#D7C1A8] ring-1 ring-[#D7C1A8]/40 shadow-sm" />
                       )}
                     </div>
                   )}
@@ -329,15 +332,15 @@ export function EntregasView() {
           {/* Calendar legend */}
           <div className="flex items-center justify-center gap-4 mt-3 pt-2 border-t border-border/50">
             <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#9BACAD]" />
+              <span className="w-3 h-3 rounded-full bg-[#9BACAD] ring-1 ring-[#9BACAD]/40 shadow-sm" />
               <span className="text-[10px] text-muted-foreground">Pendiente</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#B3BA95]" />
+              <span className="w-3 h-3 rounded-full bg-[#B3BA95] ring-1 ring-[#B3BA95]/40 shadow-sm" />
               <span className="text-[10px] text-muted-foreground">Entregado</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#D7C1A8]" />
+              <span className="w-3 h-3 rounded-full bg-[#D7C1A8] ring-1 ring-[#D7C1A8]/40 shadow-sm" />
               <span className="text-[10px] text-muted-foreground">Completado</span>
             </div>
           </div>
