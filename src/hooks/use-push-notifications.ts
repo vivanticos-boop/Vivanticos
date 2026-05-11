@@ -1,11 +1,12 @@
 // ==========================================
 // HOOK: PUSH NOTIFICATIONS - VIVANTICOS
-// Maneja permisos, suscripciones y estado
+// Maneja permisos, suscripciones, estado
+// y verificación periódica de notificaciones
 // ==========================================
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   isPushSupported,
   getNotificationPermissionStatus,
@@ -15,6 +16,8 @@ import {
   isPushSubscribed,
 } from '@/lib/notifications';
 import { useAppStore } from '@/stores/app-store';
+import { useEntregasStore } from '@/stores/entregas-store';
+import { useCotizacionesStore } from '@/stores/cotizaciones-store';
 
 interface PushNotificationState {
   isSupported: boolean;
@@ -24,8 +27,17 @@ interface PushNotificationState {
   error: string | null;
 }
 
+// Intervalo de verificación de notificaciones: cada 5 minutos
+const CHECK_INTERVAL = 5 * 60 * 1000;
+
 export function usePushNotifications() {
   const currentUser = useAppStore(s => s.currentUser);
+  const isLoggedIn = useAppStore(s => s.isLoggedIn);
+  const generateNotificaciones = useAppStore(s => s.generateNotificaciones);
+  const loadNotificacionesFromSupabase = useAppStore(s => s.loadNotificacionesFromSupabase);
+  const entregas = useEntregasStore(s => s.entregas);
+  const cotizaciones = useCotizacionesStore(s => s.cotizaciones);
+
   const [state, setState] = useState<PushNotificationState>({
     isSupported: false,
     permissionStatus: 'default',
@@ -33,6 +45,8 @@ export function usePushNotifications() {
     isLoading: true,
     error: null,
   });
+
+  const checkIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Verificar estado inicial
   const checkStatus = useCallback(async () => {
@@ -61,6 +75,40 @@ export function usePushNotifications() {
   useEffect(() => {
     checkStatus();
   }, [checkStatus]);
+
+  // Verificación periódica de notificaciones (cada 5 minutos cuando la app está abierta)
+  useEffect(() => {
+    if (!isLoggedIn || !currentUser?.id) return;
+
+    const checkNotifications = async () => {
+      try {
+        // 1. Regenerar notificaciones basadas en datos actuales
+        if (entregas.length > 0 || cotizaciones.length > 0) {
+          generateNotificaciones(entregas, cotizaciones);
+        }
+
+        // 2. Recargar notificaciones desde Supabase
+        await loadNotificacionesFromSupabase(currentUser.id);
+
+        // 3. Llamar al endpoint de verificación (envía push si hay nuevas)
+        await fetch('/api/notifications/check');
+      } catch (e) {
+        console.error('Error in periodic notification check:', e);
+      }
+    };
+
+    // Verificar inmediatamente
+    checkNotifications();
+
+    // Luego cada 5 minutos
+    checkIntervalRef.current = setInterval(checkNotifications, CHECK_INTERVAL);
+
+    return () => {
+      if (checkIntervalRef.current) {
+        clearInterval(checkIntervalRef.current);
+      }
+    };
+  }, [isLoggedIn, currentUser?.id, entregas, cotizaciones, generateNotificaciones, loadNotificacionesFromSupabase]);
 
   // Solicitar permiso y suscribirse
   const subscribe = useCallback(async () => {
