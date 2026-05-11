@@ -10,9 +10,10 @@ import { Separator } from '@/components/ui/separator';
 import {
   ArrowLeft, Edit, Trash2, Ruler, Bed, Layers, Tag,
   MessageCircle, FileText, Truck, Shield, Package,
-  Ruler as MeasureIcon, Hammer, ChevronLeft, ChevronRight,
+  Ruler as MeasureIcon, Hammer, ChevronLeft, ChevronRight, Loader2,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
+import { generateCatalogPDF } from '@/lib/pdf-catalog';
 import { toast } from 'sonner';
 
 export function ProductoDetalleView() {
@@ -65,143 +66,34 @@ export function ProductoDetalleView() {
   const goNextImage = () => setSelectedImageIdx(i => (i + 1) % imagenes.length);
   const goPrevImage = () => setSelectedImageIdx(i => (i - 1 + imagenes.length) % imagenes.length);
 
-  // ===== WhatsApp: Share catalog (all or by category) =====
+  // ===== WhatsApp: Share link to public catalog =====
   const handleWhatsApp = () => {
+    const baseUrl = window.location.origin;
     const isCategory = !!filtroCategoria;
+    const catalogUrl = isCategory
+      ? `${baseUrl}/share?cat=${encodeURIComponent(filtroCategoria)}`
+      : `${baseUrl}/share`;
 
-    let msg = isCategory
-      ? `¡Hola! Te comparto nuestro catálogo ${categoriaNombre} Vivanticos 🧸\n\n`
-      : `¡Hola! Te comparto nuestro catálogo Vivanticos 🧸\n\n`;
-
-    productosToShare.forEach((p, i) => {
-      msg += `*${i + 1}. ${p.nombre}*\n`;
-      msg += `Precio: ${formatPrice(p.precio_base)}\n`;
-
-      if (p.descripcion) {
-        const desc = p.descripcion.length > 120
-          ? p.descripcion.substring(0, 120) + '...'
-          : p.descripcion;
-        msg += `${desc}\n`;
-      }
-
-      if (p.garantia) {
-        msg += `🛡️ Garantía: ${p.garantia}\n`;
-      }
-
-      if (p.entrega_inmediata) {
-        msg += `🚚 Entrega inmediata\n`;
-      } else {
-        msg += `🔨 Fabricación\n`;
-      }
-
-      // First image
-      if (p.imagenes.length > 0) {
-        msg += `${p.imagenes[0]}\n`;
-      }
-
-      msg += '\n';
-    });
-
-    msg += `— Vivanticos · Muebles y Decoración Infantil 💛`;
+    const catText = categoriaNombre ? ` ${categoriaNombre}` : '';
+    const msg = `¡Hola! Te comparto nuestro catálogo${catText} Vivanticos 🧸\n\n👉 ${catalogUrl}\n\n— Vivanticos · Muebles y Decoración Infantil 💛`;
 
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
-  // ===== PDF: Share catalog (all or by category) =====
-  const handlePDF = () => {
-    const isCategory = !!filtroCategoria;
-    const title = isCategory
-      ? `Catálogo ${categoriaNombre}`
-      : 'Catálogo';
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      toast.error('No se pudo abrir la ventana de impresión. Permite las ventanas emergentes.');
-      return;
+  // ===== PDF: Generate downloadable PDF file =====
+  const handlePDF = async () => {
+    setIsGeneratingPDF(true);
+    try {
+      await generateCatalogPDF(productosToShare, categoriaNombre);
+      toast.success('PDF descargado exitosamente');
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      toast.error('Error generando el PDF. Intenta de nuevo.');
+    } finally {
+      setIsGeneratingPDF(false);
     }
-
-    const productsHtml = productosToShare.map((p, i) => {
-      const imagesHtml = p.imagenes.length > 0
-        ? `<div style="display:grid;grid-template-columns:repeat(${Math.min(p.imagenes.length, 4)},1fr);gap:8px;margin:12px 0;">
-            ${p.imagenes.map(img => `<img src="${img}" style="width:100%;height:auto;border-radius:6px;object-fit:cover;max-height:200px;" />`).join('')}
-          </div>`
-        : `<div style="text-align:center;padding:20px 0;color:#ccc;font-size:36px;">🧸</div>`;
-
-      const badgesHtml = `
-        ${p.entrega_inmediata
-          ? `<span style="display:inline-block;background:#7c8c6e;color:white;padding:4px 12px;border-radius:16px;font-size:11px;font-weight:600;">🚚 Entrega Inmediata</span>`
-          : `<span style="display:inline-block;background:#b8a090;color:white;padding:4px 12px;border-radius:16px;font-size:11px;font-weight:600;">🔨 Fabricación</span>`
-        }
-      `;
-
-      const garantiaHtml = p.garantia
-        ? `<div style="margin-top:8px;font-size:12px;color:#888;"><span style="font-weight:600;">🛡️ Garantía:</span> ${p.garantia}</div>`
-        : '';
-
-      return `
-        <div style="border-bottom:1px solid #f0ebe6;padding:20px 0;${i === 0 ? 'padding-top:0;' : ''}">
-          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px;">
-            <div>
-              <span style="font-size:10px;color:#bbb;letter-spacing:1px;text-transform:uppercase;">${p.codigo}</span>
-              <h3 style="font-family:'League Spartan',sans-serif;font-size:18px;font-weight:700;color:#333;margin:2px 0 6px;">${p.nombre}</h3>
-            </div>
-            <div style="text-align:right;flex-shrink:0;">
-              <div style="font-family:'League Spartan',sans-serif;font-size:22px;font-weight:800;color:#7c8c6e;">${formatPrice(p.precio_base)}</div>
-              <div style="margin-top:4px;">${badgesHtml}</div>
-            </div>
-          </div>
-          ${imagesHtml}
-          ${p.descripcion ? `<p style="font-size:13px;color:#666;line-height:1.5;margin-top:8px;">${p.descripcion}</p>` : ''}
-          ${garantiaHtml}
-        </div>
-      `;
-    }).join('');
-
-    const html = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>${title} — Vivanticos</title>
-  <link href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family: 'Segoe UI', system-ui, sans-serif; color:#333; }
-    @media print {
-      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    }
-  </style>
-</head>
-<body>
-  <div style="max-width:700px;margin:0 auto;padding:40px 32px;">
-    <!-- Header with logo -->
-    <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;border-bottom:3px solid #e8a0b6;padding-bottom:20px;">
-      <img src="/logo-vivanticos.jpeg" style="width:56px;height:56px;border-radius:12px;object-fit:contain;" />
-      <div>
-        <div style="font-family:'League Spartan',sans-serif;font-size:22px;font-weight:800;color:#7c8c6e;">Vivanticos</div>
-        <div style="font-size:12px;color:#999;letter-spacing:2px;text-transform:uppercase;">Muebles y Decoración Infantil</div>
-      </div>
-    </div>
-
-    <!-- Catalog title -->
-    <h1 style="font-family:'League Spartan',sans-serif;font-size:28px;font-weight:800;color:#333;margin-bottom:8px;">
-      ${title}
-    </h1>
-    <p style="font-size:13px;color:#999;margin-bottom:24px;">${productosToShare.length} producto${productosToShare.length !== 1 ? 's' : ''} disponible${productosToShare.length !== 1 ? 's' : ''}</p>
-
-    <!-- Products -->
-    ${productsHtml}
-
-    <!-- Footer -->
-    <div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;text-align:center;">
-      <div style="font-size:12px;color:#bbb;">Vivanticos · Muebles y Decoración Infantil · www.vivanticos.com</div>
-    </div>
-  </div>
-  <script>window.onload=function(){window.print();}</script>
-</body>
-</html>`;
-
-    printWindow.document.write(html);
-    printWindow.document.close();
   };
 
   const iconMap: Record<string, React.ReactNode> = {
@@ -382,9 +274,14 @@ export function ProductoDetalleView() {
                   size="sm"
                   className="flex-1 bg-viv-sage hover:bg-viv-sage-dark text-white"
                   onClick={handlePDF}
+                  disabled={isGeneratingPDF}
                 >
-                  <FileText size={14} className="mr-1" />
-                  PDF
+                  {isGeneratingPDF ? (
+                    <Loader2 size={14} className="mr-1 animate-spin" />
+                  ) : (
+                    <FileText size={14} className="mr-1" />
+                  )}
+                  {isGeneratingPDF ? 'Generando...' : 'PDF'}
                 </Button>
               </div>
             </CardContent>
