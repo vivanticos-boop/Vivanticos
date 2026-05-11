@@ -8,9 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Search, Plus, Grid3X3, List, Truck, PackageX, MessageCircle, FileText, Tag, RefreshCw } from 'lucide-react';
+import { Search, Plus, Grid3X3, List, Truck, PackageX, MessageCircle, FileText, RefreshCw, Hammer, ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 import { toast } from 'sonner';
+
+const ITEMS_PER_PAGE = 4;
 
 export function CatalogoView() {
   const navigateTo = useAppStore(s => s.navigateTo);
@@ -32,13 +34,26 @@ export function CatalogoView() {
   const loadFromSupabase = useCatalogoStore(s => s.loadFromSupabase);
 
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [currentPage, setCurrentPage] = useState(1);
 
-  // Cargar datos de Supabase al montar — siempre refrescar para multi-dispositivo
+  // Cargar datos de Supabase al montar
   useEffect(() => {
     loadFromSupabase();
   }, [loadFromSupabase]);
 
   const filtered = filteredProductos();
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filtroCategoria, filtroSubcategoria, searchTerm]);
+
+  // Pagination
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+  const paginatedProducts = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filtered.slice(start, start + ITEMS_PER_PAGE);
+  }, [filtered, currentPage]);
 
   // Subcategories filtered by selected category
   const subcategoriasFiltradas = useMemo(() => {
@@ -46,35 +61,64 @@ export function CatalogoView() {
     return subcategorias.filter(s => s.categoria_id === filtroCategoria && s.activa);
   }, [filtroCategoria, subcategorias]);
 
-  // WhatsApp share from card: ONLY name + price + up to 4 images. NO technical info.
-  const handleWhatsAppFromCard = (e: React.MouseEvent, producto: typeof productos[0]) => {
-    e.stopPropagation();
-    const priceText = `Precio: *${formatPrice(producto.precio_base)}*`;
+  // Get category name
+  const categoriaNombre = useMemo(() => {
+    if (!filtroCategoria) return null;
+    const cat = categorias.find(c => c.id === filtroCategoria);
+    return cat?.nombre || null;
+  }, [filtroCategoria, categorias]);
 
-    let msg = `¡Hola! Te comparto información sobre *${producto.nombre}* de Vivanticos:\n\n` +
-      `Código: ${producto.codigo}\n` +
-      priceText;
+  // ===== WhatsApp: Share catalog (all or by category) =====
+  const handleShareWhatsApp = () => {
+    const productosToShare = filtered;
+    const isCategory = !!filtroCategoria;
 
-    if (producto.entrega_inmediata) {
-      msg += `\n🚚 Entrega inmediata`;
-    }
+    let msg = isCategory
+      ? `¡Hola! Te comparto nuestro catálogo ${categoriaNombre} Vivanticos 🧸\n\n`
+      : `¡Hola! Te comparto nuestro catálogo Vivanticos 🧸\n\n`;
 
-    const imagenes = producto.imagenes.slice(0, 4);
-    if (imagenes.length > 0) {
-      msg += '\n\n';
-      imagenes.forEach((img) => {
-        msg += img + '\n';
-      });
-    }
+    productosToShare.forEach((p, i) => {
+      msg += `*${i + 1}. ${p.nombre}*\n`;
+      msg += `Precio: ${formatPrice(p.precio_base)}\n`;
 
-    msg += `\n— Vivanticos · Muebles y Decoración Infantil 💛`;
+      if (p.descripcion) {
+        // Truncate long descriptions for WhatsApp
+        const desc = p.descripcion.length > 120
+          ? p.descripcion.substring(0, 120) + '...'
+          : p.descripcion;
+        msg += `${desc}\n`;
+      }
+
+      if (p.garantia) {
+        msg += `🛡️ Garantía: ${p.garantia}\n`;
+      }
+
+      if (p.entrega_inmediata) {
+        msg += `🚚 Entrega inmediata\n`;
+      } else {
+        msg += `🔨 Fabricación\n`;
+      }
+
+      // First image
+      if (p.imagenes.length > 0) {
+        msg += `${p.imagenes[0]}\n`;
+      }
+
+      msg += '\n';
+    });
+
+    msg += `— Vivanticos · Muebles y Decoración Infantil 💛`;
+
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
-  // PDF share from card: ONLY name + price + up to 4 images. NO technical info.
-  const handlePDFFromCard = (e: React.MouseEvent, producto: typeof productos[0]) => {
-    e.stopPropagation();
-    const imagenes = producto.imagenes.slice(0, 4);
+  // ===== PDF: Share catalog (all or by category) =====
+  const handleSharePDF = () => {
+    const productosToShare = filtered;
+    const isCategory = !!filtroCategoria;
+    const title = isCategory
+      ? `Catálogo ${categoriaNombre}`
+      : 'Catálogo';
 
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -82,58 +126,80 @@ export function CatalogoView() {
       return;
     }
 
-    const imagesHtml = imagenes.length > 0
-      ? `<div style="display:grid;grid-template-columns:repeat(${Math.min(imagenes.length, 2)},1fr);gap:12px;margin:24px 0;">
-          ${imagenes.map(img => `<img src="${img}" style="width:100%;height:auto;border-radius:8px;object-fit:cover;max-height:300px;" />`).join('')}
-        </div>`
-      : `<div style="text-align:center;padding:40px 0;color:#999;font-size:48px;">🧸</div>`;
+    const productsHtml = productosToShare.map((p, i) => {
+      const imagesHtml = p.imagenes.length > 0
+        ? `<div style="display:grid;grid-template-columns:repeat(${Math.min(p.imagenes.length, 4)},1fr);gap:8px;margin:12px 0;">
+            ${p.imagenes.map(img => `<img src="${img}" style="width:100%;height:auto;border-radius:6px;object-fit:cover;max-height:200px;" />`).join('')}
+          </div>`
+        : `<div style="text-align:center;padding:20px 0;color:#ccc;font-size:36px;">🧸</div>`;
 
-    const priceHtml = `<div style="font-size:36px;font-weight:800;color:#7c8c6e;font-family:'League Spartan',sans-serif;">
-          ${formatPrice(producto.precio_base)}
-        </div>`;
+      const badgesHtml = `
+        ${p.entrega_inmediata
+          ? `<span style="display:inline-block;background:#7c8c6e;color:white;padding:4px 12px;border-radius:16px;font-size:11px;font-weight:600;">🚚 Entrega Inmediata</span>`
+          : `<span style="display:inline-block;background:#b8a090;color:white;padding:4px 12px;border-radius:16px;font-size:11px;font-weight:600;">🔨 Fabricación</span>`
+        }
+      `;
 
-    const entregaBadge = producto.entrega_inmediata
-      ? `<div style="display:inline-block;background:#7c8c6e;color:white;padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;margin-top:12px;">
-          🚚 Entrega Inmediata
-        </div>`
-      : '';
+      const garantiaHtml = p.garantia
+        ? `<div style="margin-top:8px;font-size:12px;color:#888;"><span style="font-weight:600;">🛡️ Garantía:</span> ${p.garantia}</div>`
+        : '';
+
+      return `
+        <div style="border-bottom:1px solid #f0ebe6;padding:20px 0;${i === 0 ? 'padding-top:0;' : ''}">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px;">
+            <div>
+              <span style="font-size:10px;color:#bbb;letter-spacing:1px;text-transform:uppercase;">${p.codigo}</span>
+              <h3 style="font-family:'League Spartan',sans-serif;font-size:18px;font-weight:700;color:#333;margin:2px 0 6px;">${p.nombre}</h3>
+            </div>
+            <div style="text-align:right;flex-shrink:0;">
+              <div style="font-family:'League Spartan',sans-serif;font-size:22px;font-weight:800;color:#7c8c6e;">${formatPrice(p.precio_base)}</div>
+              <div style="margin-top:4px;">${badgesHtml}</div>
+            </div>
+          </div>
+          ${imagesHtml}
+          ${p.descripcion ? `<p style="font-size:13px;color:#666;line-height:1.5;margin-top:8px;">${p.descripcion}</p>` : ''}
+          ${garantiaHtml}
+        </div>
+      `;
+    }).join('');
 
     const html = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>${producto.nombre} — Vivanticos</title>
+  <title>${title} — Vivanticos</title>
   <link href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     body { font-family: 'Segoe UI', system-ui, sans-serif; color:#333; }
     @media print {
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .page-break { page-break-before: always; }
     }
   </style>
 </head>
 <body>
   <div style="max-width:700px;margin:0 auto;padding:40px 32px;">
-    <div style="display:flex;align-items:center;gap:16px;margin-bottom:32px;border-bottom:3px solid #e8a0b6;padding-bottom:24px;">
+    <!-- Header with logo -->
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;border-bottom:3px solid #e8a0b6;padding-bottom:20px;">
       <img src="/logo-vivanticos.jpeg" style="width:56px;height:56px;border-radius:12px;object-fit:contain;" />
       <div>
         <div style="font-family:'League Spartan',sans-serif;font-size:22px;font-weight:800;color:#7c8c6e;">Vivanticos</div>
         <div style="font-size:12px;color:#999;letter-spacing:2px;text-transform:uppercase;">Muebles y Decoración Infantil</div>
       </div>
     </div>
-    <div style="margin-bottom:8px;">
-      <span style="font-size:11px;color:#999;letter-spacing:1.5px;text-transform:uppercase;">${producto.codigo}</span>
-    </div>
-    <h1 style="font-family:'League Spartan',sans-serif;font-size:32px;font-weight:800;color:#333;margin-bottom:20px;">
-      ${producto.nombre}
+
+    <!-- Catalog title -->
+    <h1 style="font-family:'League Spartan',sans-serif;font-size:28px;font-weight:800;color:#333;margin-bottom:8px;">
+      ${title}
     </h1>
-    ${imagesHtml}
-    <div style="background:#faf8f5;border-radius:16px;padding:24px;margin-top:24px;">
-      <div style="font-size:11px;color:#999;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Precio</div>
-      ${priceHtml}
-      ${entregaBadge}
-    </div>
-    <div style="margin-top:40px;padding-top:20px;border-top:1px solid #eee;text-align:center;">
+    <p style="font-size:13px;color:#999;margin-bottom:24px;">${productosToShare.length} producto${productosToShare.length !== 1 ? 's' : ''} disponible${productosToShare.length !== 1 ? 's' : ''}</p>
+
+    <!-- Products -->
+    ${productsHtml}
+
+    <!-- Footer -->
+    <div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;text-align:center;">
       <div style="font-size:12px;color:#bbb;">Vivanticos · Muebles y Decoración Infantil · www.vivanticos.com</div>
     </div>
   </div>
@@ -170,6 +236,28 @@ export function CatalogoView() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* Share buttons */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-green-500 text-green-600 hover:bg-green-50"
+            onClick={handleShareWhatsApp}
+            disabled={filtered.length === 0}
+          >
+            <MessageCircle size={14} className="mr-1" />
+            <span className="hidden sm:inline">WhatsApp</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-viv-sage text-viv-sage-dark hover:bg-viv-sage/10"
+            onClick={handleSharePDF}
+            disabled={filtered.length === 0}
+          >
+            <FileText size={14} className="mr-1" />
+            <span className="hidden sm:inline">PDF</span>
+          </Button>
+
           <Button
             variant="outline"
             size="icon"
@@ -333,7 +421,7 @@ export function CatalogoView() {
       ) : viewMode === 'grid' ? (
         /* ─── Grid Mode ─── */
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-          {filtered.map(producto => {
+          {paginatedProducts.map(producto => {
             return (
               <Card
                 key={producto.id}
@@ -357,33 +445,18 @@ export function CatalogoView() {
                     </span>
                   )}
 
-                  {/* Entrega inmediata badge */}
-                  {producto.entrega_inmediata && (
+                  {/* Badges */}
+                  {producto.entrega_inmediata ? (
                     <Badge className="absolute bottom-2 left-2 bg-emerald-500 text-white border-0 text-[10px] gap-1 px-2 py-0.5">
                       <Truck size={10} />
                       Entrega inmediata
                     </Badge>
+                  ) : (
+                    <Badge className="absolute bottom-2 left-2 bg-amber-600 text-white border-0 text-[10px] gap-1 px-2 py-0.5">
+                      <Hammer size={10} />
+                      Fabricación
+                    </Badge>
                   )}
-
-                  {/* Quick share overlay on hover */}
-                  <div className="absolute top-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                    <button
-                      onClick={(e) => handleWhatsAppFromCard(e, producto)}
-                      className="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center shadow-md hover:bg-green-600 transition-colors"
-                      aria-label="Compartir por WhatsApp"
-                      title="WhatsApp"
-                    >
-                      <MessageCircle size={14} />
-                    </button>
-                    <button
-                      onClick={(e) => handlePDFFromCard(e, producto)}
-                      className="w-8 h-8 rounded-full bg-viv-sage text-white flex items-center justify-center shadow-md hover:bg-viv-sage-dark transition-colors"
-                      aria-label="Generar PDF"
-                      title="PDF"
-                    >
-                      <FileText size={14} />
-                    </button>
-                  </div>
                 </div>
 
                 {/* Card content */}
@@ -412,7 +485,7 @@ export function CatalogoView() {
       ) : (
         /* ─── List Mode ─── */
         <div className="space-y-2">
-          {filtered.map(producto => {
+          {paginatedProducts.map(producto => {
             return (
               <Card
                 key={producto.id}
@@ -454,39 +527,53 @@ export function CatalogoView() {
                     </div>
                   </div>
 
-                  {/* Badges & Actions */}
+                  {/* Badges */}
                   <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                    {producto.entrega_inmediata && (
+                    {producto.entrega_inmediata ? (
                       <Badge className="bg-emerald-500 text-white border-0 text-[10px] gap-1">
                         <Truck size={10} />
                         <span className="hidden sm:inline">Entrega inmediata</span>
                         <span className="sm:hidden">Inmediata</span>
                       </Badge>
+                    ) : (
+                      <Badge className="bg-amber-600 text-white border-0 text-[10px] gap-1">
+                        <Hammer size={10} />
+                        <span className="hidden sm:inline">Fabricación</span>
+                        <span className="sm:hidden">Fab.</span>
+                      </Badge>
                     )}
-                    {/* Quick share in list mode */}
-                    <div className="flex gap-1 mt-1">
-                      <button
-                        onClick={(e) => handleWhatsAppFromCard(e, producto)}
-                        className="w-7 h-7 rounded-full bg-green-500 text-white flex items-center justify-center hover:bg-green-600 transition-colors"
-                        aria-label="WhatsApp"
-                        title="Compartir por WhatsApp"
-                      >
-                        <MessageCircle size={12} />
-                      </button>
-                      <button
-                        onClick={(e) => handlePDFFromCard(e, producto)}
-                        className="w-7 h-7 rounded-full bg-viv-sage text-white flex items-center justify-center hover:bg-viv-sage-dark transition-colors"
-                        aria-label="PDF"
-                        title="Generar PDF"
-                      >
-                        <FileText size={12} />
-                      </button>
-                    </div>
                   </div>
                 </CardContent>
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {/* ─── Pagination ─── */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 pt-2">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+          >
+            <ChevronLeft size={16} />
+          </Button>
+          <span className="text-sm text-muted-foreground px-2">
+            {currentPage} / {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+          >
+            <ChevronRight size={16} />
+          </Button>
         </div>
       )}
     </div>
