@@ -15,6 +15,83 @@ import { Eye, EyeOff, RefreshCw, Loader2, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSwUpdate } from '@/hooks/use-sw-update';
 
+// 52 frases motivacionales — una por semana del año
+const WEEKLY_QUOTES = [
+  // Enero
+  'Cada mueble que creamos lleva amor y dedicación para los más pequeños del hogar',
+  'Convertir sueños en espacios llenos de magia, eso es Vivanticos',
+  'Un cuarto de bebé no es solo un espacio, es un mundo de ilusiones',
+  'Diseñamos con el corazón para que los peques crezcan rodeados de belleza',
+  // Febrero
+  'Cada cuna que fabricamos es el primer hogar de una nueva historia',
+  'Los grandes negocios empiezan con pequeños sueños y mucho esfuerzo',
+  'No esperes el momento perfecto, crea muebles que hagan perfecto cada momento',
+  'La perseverancia transforma una idea en un hogar lleno de vida',
+  // Marzo
+  'Cada detalle importa cuando se trata del bienestar de un bebé',
+  'La creatividad es el motor que mueve nuestras manos y nuestros sueños',
+  'Un buen día de trabajo es aquel donde aprendes algo nuevo',
+  'No vendemos muebles, creamos espacios donde nace la felicidad',
+  // Abril
+  'La excelencia no es un acto, es un hábito que cultivamos cada día',
+  'Detrás de cada producto hay una familia que confía en nosotros',
+  'El éxito se construye día a día, cuna a cuna, sueño a sueño',
+  'Cada entrega es una promesa cumplida y una sonrisa garantizada',
+  // Mayo
+  'La pasión por lo que hacemos se nota en cada acabado y cada detalle',
+  'Los desafíos son oportunidades disfrazadas de muebles por armar',
+  'Un equipo que sueña juntos, construye negocios que perduran',
+  'La calidad no se negocia, se teje con amor en cada rincón',
+  // Junio
+  'Hoy es un buen día para hacer la diferencia en la vida de una familia',
+  'No hay atajos hacia el éxito, pero sí hay muebles que hacen el camino más bello',
+  'La constancia es la llave que abre puertas que el talento solo puede soñar',
+  'Cada cliente satisfecho es un embajador de nuestra pasión',
+  // Julio
+  'Innovar es atreverse a crear lo que nadie imaginó para los más pequeños',
+  'El mejor momento para empezar fue ayer, el segundo mejor es ahora',
+  'Cada semana es una nueva oportunidad para superar lo logrado',
+  'Los muebles no solo decoran, cuentan historias de amor y familia',
+  // Agosto
+  'Soñar en grande no cuesta nada, construir esos sueños vale todo',
+  'La diferencia entre lo ordinario y lo extraordinario está en la dedicación',
+  'Un bebé merece lo mejor, y eso es lo que nos motiva a mejorar cada día',
+  'El trabajo duro vence al talento cuando el talento no trabaja duro',
+  // Septiembre
+  'Cada diseño es una carta de amor escrita en madera y tela',
+  'La paciencia y el cuidado transforman la materia prima en una obra de arte',
+  'No importa cuántas veces caigas, importa cuántas veces volvemos a crear',
+  'La diferencia está en los detalles que otros no ven pero los papás sí sienten',
+  // Octubre
+  'El éxito de Vivanticos se mide en sonrisas, no solo en ventas',
+  'Creemos en el poder de transformar espacios y vidas con lo que hacemos',
+  'Cada semana trae consigo una nueva oportunidad para ser mejores',
+  'La inspiración viene de los pequeños, la ejecución de los valientes',
+  // Noviembre
+  'Un mueble bien hecho es un abrazo que dura años en el hogar de una familia',
+  'No se trata de vender más, se trata de impactar mejor la vida de cada cliente',
+  'La disciplina es el puente entre las metas y los logros',
+  'Cada niño merece un espacio donde su imaginación vuele sin límites',
+  // Diciembre
+  'El fin del año es el momento perfecto para soñar más grande',
+  'Agradecemos cada familia que nos permitió ser parte de su historia',
+  'Cerrar un año con propósito es abrir el siguiente con determinación',
+  'Lo que construimos con amor perdura más allá del tiempo',
+  // Extras
+  'El futuro pertenece a quienes creen en la belleza de sus sueños',
+  'Cada mañana es un lienzo en blanco, píntalo con pasión y propósito',
+  'Vivanticos no es solo una marca, es una familia que crea para familias',
+  'El mejor regalo para un bebé es un hogar lleno de amor y buenos momentos',
+];
+
+function getWeeklyQuote(): string {
+  const now = new Date();
+  const startOfYear = new Date(now.getFullYear(), 0, 1);
+  const daysSinceStart = Math.floor((now.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000));
+  const weekNumber = Math.floor(daysSinceStart / 7);
+  return WEEKLY_QUOTES[weekNumber % WEEKLY_QUOTES.length];
+}
+
 export function LoginView() {
   const login = useAppStore(s => s.login);
   const [email, setEmail] = useState('');
@@ -175,14 +252,11 @@ export function LoginView() {
               </Button>
             </div>
 
-            {/* Demo credentials hint */}
-            <div className="mt-6 p-3 rounded-lg bg-viv-peach/10 border border-viv-peach/30">
-              <p className="text-xs text-muted-foreground font-medium mb-2">Credenciales de demo:</p>
-              <div className="space-y-1 text-xs text-muted-foreground">
-                <p><span className="font-medium">Admin:</span> admin@vivanticos.com / Vivanticos2025</p>
-                <p><span className="font-medium">Jefe:</span> jefe@vivanticos.com / Vivanticos2025</p>
-                <p><span className="font-medium">Vendedor:</span> vendedor@vivanticos.com / Vivanticos2025</p>
-              </div>
+            {/* Frase motivacional semanal */}
+            <div className="mt-6 p-4 rounded-lg bg-viv-sage/5 border border-viv-sage/15 text-center">
+              <p className="text-xs text-viv-sage-dark/80 italic leading-relaxed">
+                "{getWeeklyQuote()}"
+              </p>
             </div>
           </CardContent>
         </Card>
