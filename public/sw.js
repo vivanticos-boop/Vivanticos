@@ -1,5 +1,5 @@
-const CACHE_NAME = 'vivanticos-v8';
-const APP_VERSION = '1.7.0';
+const CACHE_NAME = 'vivanticos-v9';
+const APP_VERSION = '1.8.0';
 
 const STATIC_ASSETS = [
   '/',
@@ -45,7 +45,89 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Handle messages from the app
+// ==========================================
+// PUSH NOTIFICATION HANDLERS
+// ==========================================
+
+// Handle push events — show native notification
+self.addEventListener('push', (event) => {
+  let data = {
+    title: 'Vivanticos',
+    body: 'Tienes una nueva notificación',
+    icon: '/icons/icon-192x192.png',
+    badge: '/icons/icon-72x72.png',
+    tag: 'vivanticos-notification',
+    data: {},
+  };
+
+  if (event.data) {
+    try {
+      const payload = event.data.json();
+      data = { ...data, ...payload };
+    } catch (e) {
+      data.body = event.data.text() || data.body;
+    }
+  }
+
+  const options = {
+    body: data.body,
+    icon: data.icon,
+    badge: data.badge,
+    tag: data.tag,
+    data: data.data,
+    vibrate: [100, 50, 100],
+    actions: data.actions || [],
+    requireInteraction: data.requireInteraction || false,
+    silent: data.silent || false,
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, options)
+  );
+});
+
+// Handle notification click — open/focus the app and navigate
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const notifData = event.notification.data || {};
+  let targetUrl = '/';
+
+  // Navigate to the relevant section based on notification data
+  if (notifData.relacionado_tipo === 'entrega' && notifData.relacionado_id) {
+    targetUrl = `/?entrega=${notifData.relacionado_id}`;
+  } else if (notifData.relacionado_tipo === 'cotizacion' && notifData.relacionado_id) {
+    targetUrl = `/?cotizacion=${notifData.relacionado_id}`;
+  }
+
+  // Handle action button clicks
+  if (event.action === 'view' && notifData.relacionado_id) {
+    // Already handled by targetUrl above
+  }
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // If there's already a window open, focus it and navigate
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.postMessage({
+            type: 'NOTIFICATION_CLICK',
+            data: notifData,
+            url: targetUrl,
+          });
+          return client.focus();
+        }
+      }
+      // If no window is open, open a new one
+      return self.clients.openWindow(targetUrl);
+    })
+  );
+});
+
+// ==========================================
+// MESSAGE HANDLERS (from app)
+// ==========================================
+
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
@@ -77,7 +159,10 @@ self.addEventListener('message', (event) => {
   }
 });
 
-// Fetch event - network first, let Vercel/CDN handle caching headers
+// ==========================================
+// FETCH HANDLER (caching strategy)
+// ==========================================
+
 self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
@@ -93,7 +178,6 @@ self.addEventListener('fetch', (event) => {
           return response;
         })
         .catch(() => {
-          // Only use cache if network fails (offline)
           return caches.match(event.request).then((cachedResponse) => {
             return cachedResponse || caches.match('/');
           });
@@ -103,8 +187,6 @@ self.addEventListener('fetch', (event) => {
   }
 
   // For Next.js static chunks (/_next/static/) — DO NOT cache in SW.
-  // Vercel CDN handles these with proper Cache-Control headers and content hashes.
-  // Caching them in SW causes stale content when the HTML references new chunk hashes.
   if (event.request.url.includes('/_next/static/')) {
     event.respondWith(
       fetch(event.request)

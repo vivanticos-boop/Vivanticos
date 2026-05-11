@@ -68,6 +68,9 @@ export function Header() {
   const markAllNotificacionesLeidas = useAppStore(s => s.markAllNotificacionesLeidas);
   const generateNotificaciones = useAppStore(s => s.generateNotificaciones);
   const lastSync = useAppStore(s => s.lastSync);
+  const navigateTo = useAppStore(s => s.navigateTo);
+  const setSelectedEntregaId = useAppStore(s => s.setSelectedEntregaId);
+  const setSelectedCotizacionId = useAppStore(s => s.setSelectedCotizacionId);
   const { checkForUpdate, applyUpdate, hasUpdate, isUpdating } = useSwUpdate();
 
   // Get loadFromSupabase functions from all stores
@@ -88,6 +91,29 @@ export function Header() {
     }
   }, [entregas, cotizaciones, generateNotificaciones]);
 
+  // Listen for push notification clicks from the Service Worker
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'NOTIFICATION_CLICK') {
+        const notifData = event.data.data || {};
+        if (notifData.relacionado_tipo === 'entrega' && notifData.relacionado_id) {
+          setSelectedEntregaId(notifData.relacionado_id);
+          navigateTo('entregas');
+        } else if (notifData.relacionado_tipo === 'cotizacion' && notifData.relacionado_id) {
+          setSelectedCotizacionId(notifData.relacionado_id);
+          navigateTo('cotizacion-detalle');
+        }
+      }
+    };
+
+    navigator.serviceWorker.addEventListener('message', handleMessage);
+    return () => {
+      navigator.serviceWorker.removeEventListener('message', handleMessage);
+    };
+  }, [navigateTo, setSelectedEntregaId, setSelectedCotizacionId]);
+
   const handleSync = async () => {
     useAppStore.getState().setIsLoading(true);
     toast.info('Sincronizando datos...');
@@ -102,7 +128,12 @@ export function Header() {
         loadEntregas(),
       ]);
 
-      // 2. Check for SW update
+      // 2. Reload notifications from Supabase
+      if (currentUser?.id) {
+        await useAppStore.getState().loadNotificacionesFromSupabase(currentUser.id);
+      }
+
+      // 3. Check for SW update
       await checkForUpdate();
       await new Promise(r => setTimeout(r, 500));
       
@@ -128,11 +159,11 @@ export function Header() {
     markNotificacionLeida(n.id);
 
     if (n.relacionado_tipo === 'entrega' && n.relacionado_id) {
-      useAppStore.getState().setSelectedEntregaId(n.relacionado_id);
-      useAppStore.getState().navigateTo('entregas');
+      setSelectedEntregaId(n.relacionado_id);
+      navigateTo('entregas');
     } else if (n.relacionado_tipo === 'cotizacion' && n.relacionado_id) {
-      useAppStore.getState().setSelectedCotizacionId(n.relacionado_id);
-      useAppStore.getState().navigateTo('cotizacion-detalle');
+      setSelectedCotizacionId(n.relacionado_id);
+      navigateTo('cotizacion-detalle');
     }
   };
 

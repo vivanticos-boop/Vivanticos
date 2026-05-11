@@ -1,13 +1,15 @@
 // ==========================================
 // STORE PRINCIPAL DE NAVEGACIÓN - VIVANTICOS
 // Con sistema de notificaciones dinámico
+// Conectado a Supabase para persistencia
 // ==========================================
 
 import { create } from 'zustand';
 import type { AppView, UserRole, Notificacion, TipoNotificacion } from '@/types';
 import { useUsuariosStore } from '@/stores/usuarios-store';
+import { supabase } from '@/lib/supabase';
 
-// --- Persistencia de notificaciones en localStorage ---
+// --- Persistencia de notificaciones en localStorage (fallback offline) ---
 const NOTIF_STORAGE_KEY = 'vivanticos-notificaciones';
 
 function loadNotifFromStorage(): Notificacion[] | null {
@@ -16,7 +18,6 @@ function loadNotifFromStorage(): Notificacion[] | null {
     const stored = localStorage.getItem(NOTIF_STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
-      // Clean up notificaciones older than 7 days
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       return (parsed.notificaciones || []).filter(
@@ -78,6 +79,8 @@ interface AppState {
   clearNotificaciones: () => void;
   unreadCount: () => number;
   generateNotificaciones: (entregas: any[], cotizaciones: any[]) => void;
+  loadNotificacionesFromSupabase: (usuarioId: string) => Promise<void>;
+  syncNotificacionToSupabase: (n: Notificacion) => Promise<void>;
 
   // Sincronización
   lastSync: string | null;
@@ -117,7 +120,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   isLoggedIn: false,
   currentUser: null,
   login: (email, password) => {
-    // Autenticación real: valida contra el store de usuarios
     const user = useUsuariosStore.getState().authenticate(email, password);
     if (user) {
       set({
@@ -130,6 +132,8 @@ export const useAppStore = create<AppState>((set, get) => ({
           avatar_url: user.avatar_url,
         },
       });
+      // Cargar notificaciones de Supabase al iniciar sesión
+      get().loadNotificacionesFromSupabase(user.id);
       return true;
     }
     return false;
@@ -139,6 +143,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     currentUser: null,
     currentView: 'dashboard',
     previousView: null,
+    notificaciones: [],
   }),
 
   // Notificaciones — arrancar vacío; se generan dinámicamente
@@ -150,34 +155,150 @@ export const useAppStore = create<AppState>((set, get) => ({
     );
     if (existing) return;
 
+    const newNotif: Notificacion = {
+      ...n,
+      id: `n${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      creado_en: new Date().toISOString(),
+      leida: false,
+    };
+
     set((state) => {
-      const notificaciones = [{
-        ...n,
-        id: `n${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-        creado_en: new Date().toISOString(),
-        leida: false,
-      }, ...state.notificaciones].slice(0, 50); // Max 50 notificaciones
+      const notificaciones = [newNotif, ...state.notificaciones].slice(0, 50);
       saveNotifToStorage(notificaciones);
       return { notificaciones };
     });
+
+    // Sincronizar con Supabase en segundo plano
+    if (get().currentUser?.id) {
+      get().syncNotificacionToSupabase(newNotif);
+    }
   },
-  markNotificacionLeida: (id) => set((state) => {
-    const notificaciones = state.notificaciones.map(n =>
-      n.id === id ? { ...n, leida: true } : n
-    );
-    saveNotifToStorage(notificaciones);
-    return { notificaciones };
-  }),
-  markAllNotificacionesLeidas: () => set((state) => {
-    const notificaciones = state.notificaciones.map(n => ({ ...n, leida: true }));
-    saveNotifToStorage(notificaciones);
-    return { notificaciones };
-  }),
+  markNotificacionLeida: (id) => {
+    set((state) => {
+      const notificaciones = state.notificaciones.map(n =>
+        n.id === id ? { ...n, leida: true } : n
+      );
+      saveNotifToStorage(notificaciones);
+
+      // Actualizar en Supabase
+      if (state.currentUser?.id && supabase) {
+        const notif = notificaciones.find(n => n.id === id);
+        // Si la notificación tiene un UUID de Supabase, actualizarla
+        if (notif && notif.id.includes('-')) {
+          supabase
+            .from('notificaciones')
+            .update({ leida: true })
+            .eq('id', notif.id)
+            .then(() => {});
+        }
+      }
+
+      return { notificaciones };
+    });
+  },
+  markAllNotificacionesLeidas: () => {
+    set((state) => {
+      const notificaciones = state.notificaciones.map(n => ({ ...n, leida: true }));
+      saveNotifToStorage(notificaciones);
+
+      // Actualizar todas en Supabase
+      if (state.currentUser?.id && supabase) {
+        supabase
+          .from('notificaciones')
+          .update({ leida: true })
+          .eq('usuario_id', state.currentUser.id)
+          .eq('leida', false)
+          .then(() => {});
+      }
+
+      return { notificaciones };
+    });
+  },
   clearNotificaciones: () => {
     saveNotifToStorage([]);
     set({ notificaciones: [] });
   },
   unreadCount: () => get().notificaciones.filter(n => !n.leida).length,
+
+  // Cargar notificaciones desde Supabase
+  loadNotificacionesFromSupabase: async (usuarioId: string) => {
+    if (!supabase) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('notificaciones')
+        .select('*')
+        .eq('usuario_id', usuarioId)
+        .order('creado_en', { ascending: false })
+        .limit(50);
+
+      if (error) {
+        console.error('Error loading notificaciones from Supabase:', error);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        const notificaciones: Notificacion[] = data.map(n => ({
+          id: n.id,
+          tipo: n.tipo as TipoNotificacion,
+          titulo: n.titulo,
+          mensaje: n.mensaje,
+          leida: n.leida,
+          creado_en: n.creado_en,
+          relacionado_id: n.relacionado_id || undefined,
+          relacionado_tipo: n.relacionado_id ? (n.tipo.startsWith('entrega') ? 'entrega' as const : 'cotizacion' as const) : undefined,
+        }));
+
+        // Mezclar con las de localStorage (dar prioridad a las de Supabase)
+        const localNotifs = loadNotifFromStorage() || [];
+        const supabaseIds = new Set(notificaciones.map(n => n.relacionado_id).filter(Boolean));
+
+        // Agregar notificaciones locales que no estén en Supabase
+        const localOnly = localNotifs.filter(
+          n => n.relacionado_id && !supabaseIds.has(n.relacionado_id) && !notificaciones.some(sn => sn.tipo === n.tipo && sn.relacionado_id === n.relacionado_id && !sn.leida)
+        );
+
+        const merged = [...notificaciones, ...localOnly]
+          .sort((a, b) => new Date(b.creado_en).getTime() - new Date(a.creado_en).getTime())
+          .slice(0, 50);
+
+        saveNotifToStorage(merged);
+        set({ notificaciones: merged });
+      }
+    } catch (e) {
+      console.error('Error in loadNotificacionesFromSupabase:', e);
+    }
+  },
+
+  // Sincronizar una notificación a Supabase
+  syncNotificacionToSupabase: async (n: Notificacion) => {
+    if (!supabase || !get().currentUser?.id) return;
+
+    try {
+      // Verificar si ya existe en Supabase (por tipo + relacionado_id + no leída)
+      const { data: existing } = await supabase
+        .from('notificaciones')
+        .select('id')
+        .eq('usuario_id', get().currentUser!.id)
+        .eq('tipo', n.tipo)
+        .eq('relacionado_id', n.relacionado_id || '')
+        .eq('leida', false)
+        .maybeSingle();
+
+      if (existing) return; // Ya existe en Supabase
+
+      await supabase.from('notificaciones').insert({
+        usuario_id: get().currentUser!.id,
+        tipo: n.tipo,
+        titulo: n.titulo,
+        mensaje: n.mensaje,
+        leida: false,
+        relacionado_id: n.relacionado_id || null,
+      });
+    } catch (e) {
+      console.error('Error syncing notification to Supabase:', e);
+    }
+  },
 
   // Generar notificaciones dinámicas basadas en entregas y cotizaciones
   generateNotificaciones: (entregas, cotizaciones) => {
@@ -221,7 +342,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const entregasVencidas = entregas.filter(
       (e: any) => e.fecha_entrega < hoyStr && e.estado === 'pendiente'
     );
-    for (const e of entregasVencidas.slice(0, 5)) { // Max 5 vencidas
+    for (const e of entregasVencidas.slice(0, 5)) {
       nuevasNotificaciones.push({
         tipo: 'entrega_vencida',
         titulo: 'Entrega vencida',
@@ -253,7 +374,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const cotizacionesPendientes = cotizaciones.filter(
       (c: any) => (c.estado === 'borrador' || c.estado === 'enviada') && new Date(c.creado_en) <= dosDiasAtras
     );
-    for (const c of cotizacionesPendientes.slice(0, 3)) { // Max 3 pendientes
+    for (const c of cotizacionesPendientes.slice(0, 3)) {
       nuevasNotificaciones.push({
         tipo: 'cotizacion_pendiente',
         titulo: 'Cotización sin respuesta',
@@ -263,7 +384,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
     }
 
-    // Agregar todas (addNotificacion previene duplicados)
+    // Agregar todas (addNotificacion previene duplicados y sincroniza con Supabase)
     for (const n of nuevasNotificaciones) {
       get().addNotificacion(n);
     }
