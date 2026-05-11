@@ -15,6 +15,33 @@ function formatPrice(price: number): string {
   }).format(price);
 }
 
+// Load an image and return its natural dimensions
+function loadImage(src: string): Promise<{ width: number; height: number; img: HTMLImageElement }> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight, img });
+    img.onerror = () => reject(new Error('Failed to load image'));
+    img.src = src;
+  });
+}
+
+// Calculate image dimensions maintaining aspect ratio within a bounding box
+function fitImage(
+  imgW: number,
+  imgH: number,
+  maxW: number,
+  maxH: number
+): { w: number; h: number; x: number; y: number } {
+  const ratio = Math.min(maxW / imgW, maxH / imgH);
+  const w = imgW * ratio;
+  const h = imgH * ratio;
+  // Center within the bounding box
+  const x = (maxW - w) / 2;
+  const y = (maxH - h) / 2;
+  return { w, h, x, y };
+}
+
 export async function generateCatalogPDF(
   productos: Producto[],
   categoriaNombre: string | null
@@ -103,15 +130,25 @@ export async function generateCatalogPDF(
     doc.text(nameLines, margin, y + 22);
     y += 22 + nameLines.length * 8;
 
-    // Image placeholder area
+    // Main image area — with correct aspect ratio
     const imgAreaHeight = 80;
     doc.setFillColor(245, 243, 240);
     doc.roundedRect(margin, y, contentWidth, imgAreaHeight, 4, 4, 'F');
 
-    // Try to add first image
     if (p.imagenes.length > 0) {
       try {
-        doc.addImage(p.imagenes[0], 'JPEG', margin + 2, y + 2, contentWidth - 4, imgAreaHeight - 4, undefined, 'FAST');
+        const { width: natW, height: natH } = await loadImage(p.imagenes[0]);
+        const fit = fitImage(natW, natH, contentWidth - 4, imgAreaHeight - 4);
+        doc.addImage(
+          p.imagenes[0],
+          'JPEG',
+          margin + 2 + fit.x,
+          y + 2 + fit.y,
+          fit.w,
+          fit.h,
+          undefined,
+          'FAST'
+        );
       } catch {
         // If image fails (CORS), show placeholder
         doc.setTextColor(200, 200, 200);
@@ -126,25 +163,37 @@ export async function generateCatalogPDF(
 
     y += imgAreaHeight + 8;
 
-    // More images thumbnails (up to 3 more)
+    // More images thumbnails (up to 3 more) — also with correct aspect ratio
     if (p.imagenes.length > 1) {
-      const thumbSize = 35;
+      const thumbMaxSize = 35;
       const thumbGap = 4;
       const totalThumbs = Math.min(p.imagenes.length - 1, 3);
-      const thumbsWidth = totalThumbs * thumbSize + (totalThumbs - 1) * thumbGap;
       let thumbX = margin;
 
       for (let t = 1; t <= totalThumbs; t++) {
+        // Square background
         doc.setFillColor(245, 243, 240);
-        doc.roundedRect(thumbX, y, thumbSize, thumbSize, 3, 3, 'F');
+        doc.roundedRect(thumbX, y, thumbMaxSize, thumbMaxSize, 3, 3, 'F');
+
         try {
-          doc.addImage(p.imagenes[t], 'JPEG', thumbX + 1, y + 1, thumbSize - 2, thumbSize - 2, undefined, 'FAST');
+          const { width: natW, height: natH } = await loadImage(p.imagenes[t]);
+          const fit = fitImage(natW, natH, thumbMaxSize - 2, thumbMaxSize - 2);
+          doc.addImage(
+            p.imagenes[t],
+            'JPEG',
+            thumbX + 1 + fit.x,
+            y + 1 + fit.y,
+            fit.w,
+            fit.h,
+            undefined,
+            'FAST'
+          );
         } catch {
           // Skip if CORS fails
         }
-        thumbX += thumbSize + thumbGap;
+        thumbX += thumbMaxSize + thumbGap;
       }
-      y += thumbSize + 8;
+      y += thumbMaxSize + 8;
     }
 
     // Price section
@@ -186,7 +235,7 @@ export async function generateCatalogPDF(
       doc.setFont('helvetica', 'normal');
 
       const descLines = doc.splitTextToSize(p.descripcion, contentWidth);
-      const maxLines = Math.min(descLines.length, 6); // Max 6 lines
+      const maxLines = Math.min(descLines.length, 6);
       doc.text(descLines.slice(0, maxLines), margin, y);
       y += maxLines * 5 + 4;
     }
