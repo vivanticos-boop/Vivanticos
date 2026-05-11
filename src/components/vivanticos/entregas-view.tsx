@@ -138,22 +138,24 @@ export function EntregasView() {
       .sort((a, b) => a.fecha_entrega.localeCompare(b.fecha_entrega));
   }, [selectedDateStr, entregasByDate, entregas]);
 
-  // Apply filter tab
-  const filteredDeliveries = useMemo(() => {
-    if (filterTab === 'todas') return deliveriesForSelectedDate;
-    return deliveriesForSelectedDate.filter(e => e.estado === filterTab);
-  }, [deliveriesForSelectedDate, filterTab]);
-
-  // Apply search filter
+  // Apply search filter — searches across ALL entregas (not just selected date)
   const searchFiltered = useMemo(() => {
-    if (!searchTerm.trim()) return filteredDeliveries;
+    if (!searchTerm.trim()) {
+      // No search term: show deliveries for selected date (or upcoming 7 days)
+      if (filterTab === 'todas') return deliveriesForSelectedDate;
+      return deliveriesForSelectedDate.filter(e => e.estado === filterTab);
+    }
+    // With search term: search across ALL entregas by nombre or teléfono
     const term = searchTerm.toLowerCase();
-    return filteredDeliveries.filter(e =>
+    let results = entregas.filter(e =>
       e.cliente_nombre.toLowerCase().includes(term) ||
-      (e.cliente_cedula && e.cliente_cedula.includes(term)) ||
       e.cliente_telefono.includes(term)
     );
-  }, [filteredDeliveries, searchTerm]);
+    if (filterTab !== 'todas') {
+      results = results.filter(e => e.estado === filterTab);
+    }
+    return results.sort((a, b) => a.fecha_entrega.localeCompare(b.fecha_entrega));
+  }, [searchTerm, filterTab, deliveriesForSelectedDate, entregas]);
 
   // Selected entrega detail
   const selectedEntrega = selectedEntregaId ? getEntrega(selectedEntregaId) : null;
@@ -204,14 +206,14 @@ export function EntregasView() {
         </Button>
       </div>
 
-      {/* Search by cédula or nombre */}
+      {/* Search by nombre or teléfono */}
       <div className="relative">
         <Search
           size={16}
           className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
         />
         <Input
-          placeholder="Buscar por nombre, cédula o teléfono..."
+          placeholder="Buscar por nombre o teléfono..."
           value={searchTerm}
           onChange={e => setSearchTerm(e.target.value)}
           className="pl-9 h-10"
@@ -297,7 +299,7 @@ export function EntregasView() {
                     ${isCurrentMonth ? 'text-foreground' : 'text-muted-foreground/40'}
                     ${isSelected ? 'bg-viv-sage/20 ring-2 ring-viv-sage/50' : 'hover:bg-muted/60'}
                     ${isTodayDate && !isSelected ? 'bg-viv-sage/10 font-bold' : ''}
-                    ${dayEntregas.length > 0 && !isSelected ? 'bg-viv-sage/8' : ''}
+                    ${dayEntregas.length > 0 && !isSelected && !isTodayDate ? 'bg-muted/40' : ''}
                   `}
                   aria-label={`${format(day, 'd')} de ${format(day, 'MMMM', { locale: es })}`}
                 >
@@ -312,15 +314,15 @@ export function EntregasView() {
                   </span>
                   {/* Delivery indicators - more visible */}
                   {dayEntregas.length > 0 && (
-                    <div className="flex items-center gap-[3px] mt-1">
+                    <div className="flex items-center gap-[3px] mt-0.5">
                       {pendienteCount > 0 && (
-                        <span className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full bg-[#9BACAD] ring-1 ring-[#9BACAD]/40 shadow-sm" />
+                        <span className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full bg-[#9BACAD] ring-2 ring-[#9BACAD]/30 shadow-[0_0_4px_rgba(155,172,173,0.4)]" />
                       )}
                       {entregadoCount > 0 && (
-                        <span className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full bg-[#B3BA95] ring-1 ring-[#B3BA95]/40 shadow-sm" />
+                        <span className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full bg-[#B3BA95] ring-2 ring-[#B3BA95]/30 shadow-[0_0_4px_rgba(179,186,149,0.4)]" />
                       )}
                       {completadoCount > 0 && (
-                        <span className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full bg-[#D7C1A8] ring-1 ring-[#D7C1A8]/40 shadow-sm" />
+                        <span className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full bg-[#D7C1A8] ring-2 ring-[#D7C1A8]/30 shadow-[0_0_4px_rgba(215,193,168,0.4)]" />
                       )}
                     </div>
                   )}
@@ -332,15 +334,15 @@ export function EntregasView() {
           {/* Calendar legend */}
           <div className="flex items-center justify-center gap-4 mt-3 pt-2 border-t border-border/50">
             <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-full bg-[#9BACAD] ring-1 ring-[#9BACAD]/40 shadow-sm" />
+              <span className="w-3.5 h-3.5 rounded-full bg-[#9BACAD] ring-2 ring-[#9BACAD]/30 shadow-[0_0_4px_rgba(155,172,173,0.4)]" />
               <span className="text-[10px] text-muted-foreground">Pendiente</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-full bg-[#B3BA95] ring-1 ring-[#B3BA95]/40 shadow-sm" />
+              <span className="w-3.5 h-3.5 rounded-full bg-[#B3BA95] ring-2 ring-[#B3BA95]/30 shadow-[0_0_4px_rgba(179,186,149,0.4)]" />
               <span className="text-[10px] text-muted-foreground">Entregado</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-full bg-[#D7C1A8] ring-1 ring-[#D7C1A8]/40 shadow-sm" />
+              <span className="w-3.5 h-3.5 rounded-full bg-[#D7C1A8] ring-2 ring-[#D7C1A8]/30 shadow-[0_0_4px_rgba(215,193,168,0.4)]" />
               <span className="text-[10px] text-muted-foreground">Completado</span>
             </div>
           </div>
