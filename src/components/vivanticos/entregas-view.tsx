@@ -126,17 +126,13 @@ export function EntregasView() {
     if (selectedDateStr) {
       return entregasByDate[selectedDateStr] || [];
     }
-    // If no date selected, show upcoming deliveries (next 7 days)
-    const today = new Date();
-    const next7 = new Date(today);
-    next7.setDate(next7.getDate() + 7);
+    // If no date selected, show all deliveries for the current displayed month
+    const monthStartStr = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
+    const monthEndStr = format(endOfMonth(currentMonth), 'yyyy-MM-dd');
     return entregas
-      .filter(e => {
-        const d = new Date(e.fecha_entrega + 'T00:00:00');
-        return d >= today && d <= next7;
-      })
+      .filter(e => e.fecha_entrega >= monthStartStr && e.fecha_entrega <= monthEndStr)
       .sort((a, b) => a.fecha_entrega.localeCompare(b.fecha_entrega));
-  }, [selectedDateStr, entregasByDate, entregas]);
+  }, [selectedDateStr, entregasByDate, entregas, currentMonth]);
 
   // Apply search filter — searches across ALL entregas (not just selected date)
   const searchFiltered = useMemo(() => {
@@ -359,7 +355,7 @@ export function EntregasView() {
           >
             {selectedDate
               ? format(selectedDate, "EEEE d 'de' MMMM, yyyy", { locale: es })
-              : 'Próximas entregas (7 días)'}
+              : `Entregas de ${getMonthName(currentMonth.getMonth())} ${currentMonth.getFullYear()}`}
           </h3>
           {selectedDate && (
             <Button
@@ -368,7 +364,7 @@ export function EntregasView() {
               className="h-6 text-[10px] text-muted-foreground hover:text-foreground"
               onClick={() => setSelectedDate(null)}
             >
-              Ver próximas
+              Ver mes
             </Button>
           )}
         </div>
@@ -411,7 +407,7 @@ export function EntregasView() {
               <Truck size={24} className="text-viv-bluegrey/50" />
             </div>
             <p className="text-sm text-muted-foreground">
-              No hay entregas {selectedDate ? 'para esta fecha' : 'próximas'}
+              No hay entregas {selectedDate ? 'para esta fecha' : 'este mes'}
             </p>
             {(filterTab !== 'todas' || selectedDate) && (
               <Button
