@@ -212,12 +212,15 @@ export type AppView =
   | 'configuracion';
 
 // --- Notificaciones ---
+export type TipoNotificacion = 'entrega_hoy' | 'entrega_manana' | 'entrega_vencida' | 'cotizacion_aprobada' | 'cotizacion_pendiente' | 'info';
+
 export interface Notificacion {
   id: string;
-  tipo: 'entrega_manana' | 'entrega_hoy' | 'cotizacion_aprobada' | 'info';
+  tipo: TipoNotificacion;
   titulo: string;
   mensaje: string;
   leida: boolean;
   creado_en: string;
   relacionado_id?: string;
+  relacionado_tipo?: 'entrega' | 'cotizacion';
 }

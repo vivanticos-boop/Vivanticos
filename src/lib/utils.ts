@@ -117,3 +117,21 @@ export function getDayName(day: number): string {
   const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
   return days[day];
 }
+
+// Formatear tiempo relativo (hace X minutos/horas/días)
+export function formatTimeAgo(dateStr: string): string {
+  const now = new Date();
+  const date = new Date(dateStr);
+  const diffMs = now.getTime() - date.getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHour = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHour / 24);
+
+  if (diffSec < 60) return 'Ahora mismo';
+  if (diffMin < 60) return `Hace ${diffMin} min`;
+  if (diffHour < 24) return `Hace ${diffHour}h`;
+  if (diffDay === 1) return 'Ayer';
+  if (diffDay < 7) return `Hace ${diffDay} días`;
+  return formatDate(dateStr);
+}

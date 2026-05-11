@@ -1,10 +1,45 @@
 // ==========================================
 // STORE PRINCIPAL DE NAVEGACIÓN - VIVANTICOS
+// Con sistema de notificaciones dinámico
 // ==========================================
 
 import { create } from 'zustand';
-import type { AppView, UserRole, Notificacion } from '@/types';
+import type { AppView, UserRole, Notificacion, TipoNotificacion } from '@/types';
 import { useUsuariosStore } from '@/stores/usuarios-store';
+
+// --- Persistencia de notificaciones en localStorage ---
+const NOTIF_STORAGE_KEY = 'vivanticos-notificaciones';
+
+function loadNotifFromStorage(): Notificacion[] | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = localStorage.getItem(NOTIF_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      // Clean up notificaciones older than 7 days
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      return (parsed.notificaciones || []).filter(
+        (n: Notificacion) => new Date(n.creado_en) > sevenDaysAgo
+      );
+    }
+  } catch (e) {
+    console.error('Error loading notificaciones from localStorage:', e);
+  }
+  return null;
+}
+
+function saveNotifToStorage(notificaciones: Notificacion[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(NOTIF_STORAGE_KEY, JSON.stringify({
+      notificaciones,
+      savedAt: new Date().toISOString(),
+    }));
+  } catch (e) {
+    console.error('Error saving notificaciones to localStorage:', e);
+  }
+}
 
 interface AppState {
   // Navegación
@@ -39,7 +74,10 @@ interface AppState {
   notificaciones: Notificacion[];
   addNotificacion: (n: Omit<Notificacion, 'id' | 'creado_en' | 'leida'>) => void;
   markNotificacionLeida: (id: string) => void;
+  markAllNotificacionesLeidas: () => void;
+  clearNotificaciones: () => void;
   unreadCount: () => number;
+  generateNotificaciones: (entregas: any[], cotizaciones: any[]) => void;
 
   // Sincronización
   lastSync: string | null;
@@ -103,41 +141,144 @@ export const useAppStore = create<AppState>((set, get) => ({
     previousView: null,
   }),
 
-  // Notificaciones
-  notificaciones: [
-    {
-      id: 'n1',
-      tipo: 'entrega_hoy',
-      titulo: 'Entrega hoy',
-      mensaje: 'Entrega programada para hoy: Cuna Luna para María García',
-      leida: false,
-      creado_en: new Date().toISOString(),
-      relacionado_id: 'e1',
-    },
-    {
-      id: 'n2',
-      tipo: 'entrega_manana',
-      titulo: 'Entrega mañana',
-      mensaje: 'Entrega programada mañana: Cuna Estrella para Juan Pérez',
-      leida: false,
-      creado_en: new Date().toISOString(),
-      relacionado_id: 'e2',
-    },
-  ],
-  addNotificacion: (n) => set((state) => ({
-    notificaciones: [{
-      ...n,
-      id: `n${Date.now()}`,
-      creado_en: new Date().toISOString(),
-      leida: false,
-    }, ...state.notificaciones],
-  })),
-  markNotificacionLeida: (id) => set((state) => ({
-    notificaciones: state.notificaciones.map(n =>
+  // Notificaciones — arrancar vacío; se generan dinámicamente
+  notificaciones: loadNotifFromStorage() || [],
+  addNotificacion: (n) => {
+    // Evitar duplicados: si ya existe una notificación del mismo tipo con el mismo relacionado_id, no agregar
+    const existing = get().notificaciones.find(
+      ex => ex.tipo === n.tipo && ex.relacionado_id === n.relacionado_id && !ex.leida
+    );
+    if (existing) return;
+
+    set((state) => {
+      const notificaciones = [{
+        ...n,
+        id: `n${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        creado_en: new Date().toISOString(),
+        leida: false,
+      }, ...state.notificaciones].slice(0, 50); // Max 50 notificaciones
+      saveNotifToStorage(notificaciones);
+      return { notificaciones };
+    });
+  },
+  markNotificacionLeida: (id) => set((state) => {
+    const notificaciones = state.notificaciones.map(n =>
       n.id === id ? { ...n, leida: true } : n
-    ),
-  })),
+    );
+    saveNotifToStorage(notificaciones);
+    return { notificaciones };
+  }),
+  markAllNotificacionesLeidas: () => set((state) => {
+    const notificaciones = state.notificaciones.map(n => ({ ...n, leida: true }));
+    saveNotifToStorage(notificaciones);
+    return { notificaciones };
+  }),
+  clearNotificaciones: () => {
+    saveNotifToStorage([]);
+    set({ notificaciones: [] });
+  },
   unreadCount: () => get().notificaciones.filter(n => !n.leida).length,
+
+  // Generar notificaciones dinámicas basadas en entregas y cotizaciones
+  generateNotificaciones: (entregas, cotizaciones) => {
+    const hoy = new Date();
+    const hoyStr = hoy.toISOString().split('T')[0];
+    const manana = new Date(hoy);
+    manana.setDate(manana.getDate() + 1);
+    const mananaStr = manana.toISOString().split('T')[0];
+
+    const nuevasNotificaciones: Omit<Notificacion, 'id' | 'creado_en' | 'leida'>[] = [];
+
+    // 1. Entregas para HOY (pendientes)
+    const entregasHoy = entregas.filter(
+      (e: any) => e.fecha_entrega === hoyStr && e.estado === 'pendiente'
+    );
+    for (const e of entregasHoy) {
+      nuevasNotificaciones.push({
+        tipo: 'entrega_hoy',
+        titulo: 'Entrega hoy',
+        mensaje: `${e.cliente_nombre} — ${e.items?.map((i: any) => i.producto_nombre).join(', ') || 'Sin items'}${e.hora_entrega ? ` a las ${e.hora_entrega}` : ''}`,
+        relacionado_id: e.id,
+        relacionado_tipo: 'entrega',
+      });
+    }
+
+    // 2. Entregas para MAÑANA (pendientes)
+    const entregasManana = entregas.filter(
+      (e: any) => e.fecha_entrega === mananaStr && e.estado === 'pendiente'
+    );
+    for (const e of entregasManana) {
+      nuevasNotificaciones.push({
+        tipo: 'entrega_manana',
+        titulo: 'Entrega mañana',
+        mensaje: `${e.cliente_nombre} — ${e.items?.map((i: any) => i.producto_nombre).join(', ') || 'Sin items'}${e.hora_entrega ? ` a las ${e.hora_entrega}` : ''}`,
+        relacionado_id: e.id,
+        relacionado_tipo: 'entrega',
+      });
+    }
+
+    // 3. Entregas VENCIDAS (fecha pasada, estado pendiente)
+    const entregasVencidas = entregas.filter(
+      (e: any) => e.fecha_entrega < hoyStr && e.estado === 'pendiente'
+    );
+    for (const e of entregasVencidas.slice(0, 5)) { // Max 5 vencidas
+      nuevasNotificaciones.push({
+        tipo: 'entrega_vencida',
+        titulo: 'Entrega vencida',
+        mensaje: `${e.cliente_nombre} — Programada para ${e.fecha_entrega}`,
+        relacionado_id: e.id,
+        relacionado_tipo: 'entrega',
+      });
+    }
+
+    // 4. Cotizaciones aprobadas recientemente (últimos 3 días)
+    const tresDiasAtras = new Date(hoy);
+    tresDiasAtras.setDate(tresDiasAtras.getDate() - 3);
+    const cotizacionesAprobadas = cotizaciones.filter(
+      (c: any) => c.estado === 'aprobada' && new Date(c.actualizado_en) >= tresDiasAtras
+    );
+    for (const c of cotizacionesAprobadas) {
+      nuevasNotificaciones.push({
+        tipo: 'cotizacion_aprobada',
+        titulo: 'Cotización aprobada',
+        mensaje: `${c.cliente_nombre} — $${(c.total || 0).toLocaleString('es-CO')}`,
+        relacionado_id: c.id,
+        relacionado_tipo: 'cotizacion',
+      });
+    }
+
+    // 5. Cotizaciones pendientes (borrador o enviada, más de 2 días sin respuesta)
+    const dosDiasAtras = new Date(hoy);
+    dosDiasAtras.setDate(dosDiasAtras.getDate() - 2);
+    const cotizacionesPendientes = cotizaciones.filter(
+      (c: any) => (c.estado === 'borrador' || c.estado === 'enviada') && new Date(c.creado_en) <= dosDiasAtras
+    );
+    for (const c of cotizacionesPendientes.slice(0, 3)) { // Max 3 pendientes
+      nuevasNotificaciones.push({
+        tipo: 'cotizacion_pendiente',
+        titulo: 'Cotización sin respuesta',
+        mensaje: `${c.cliente_nombre} — ${c.estado === 'borrador' ? 'Borrador' : 'Enviada'} hace más de 2 días`,
+        relacionado_id: c.id,
+        relacionado_tipo: 'cotizacion',
+      });
+    }
+
+    // Agregar todas (addNotificacion previene duplicados)
+    for (const n of nuevasNotificaciones) {
+      get().addNotificacion(n);
+    }
+
+    // Limpiar notificaciones viejas (>7 días) y leídas
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const cleaned = get().notificaciones.filter(
+      n => !n.leida || new Date(n.creado_en) > sevenDaysAgo
+    );
+    if (cleaned.length !== get().notificaciones.length) {
+      saveNotifToStorage(cleaned);
+      set({ notificaciones: cleaned });
+    }
+  },
 
   // Sincronización
   lastSync: null,
