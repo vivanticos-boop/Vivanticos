@@ -114,7 +114,7 @@ export default function ShareCatalogoPage() {
   // WhatsApp contact
   const handleWhatsApp = () => {
     const msg = encodeURIComponent('¡Hola! Vi el catálogo de Vivanticos y me interesa conocer más información 🧸');
-    window.open(`https://wa.me/573016143040?text=${msg}`, '_blank');
+    window.open(`https://wa.me/573162794527?text=${msg}`, '_blank');
   };
 
   // Image carousel

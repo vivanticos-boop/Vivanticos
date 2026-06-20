@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Download, X, Smartphone } from 'lucide-react';
 import { usePwaInstall } from '@/hooks/use-pwa-install';
@@ -9,9 +10,14 @@ export function PwaInstallBanner() {
   const { canInstall, isInstalled, isIOS, promptInstall } = usePwaInstall();
   const [showBanner, setShowBanner] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const pathname = usePathname();
+
+  // NO mostrar el banner en la página pública /share (catálogo compartido con clientes)
+  const isSharePage = pathname?.startsWith('/share');
 
   useEffect(() => {
-    if (isInstalled || dismissed) return;
+    // No mostrar en /share, no mostrar si ya instalado o fue dismiss
+    if (isSharePage || isInstalled || dismissed) return;
 
     // Show banner quickly - after 1.5 seconds
     const timer = setTimeout(() => {
@@ -25,7 +31,7 @@ export function PwaInstallBanner() {
     }, 1500);
 
     return () => clearTimeout(timer);
-  }, [isInstalled, dismissed]);
+  }, [isSharePage, isInstalled, dismissed]);
 
   const handleInstall = async () => {
     const accepted = await promptInstall();
@@ -40,7 +46,7 @@ export function PwaInstallBanner() {
     localStorage.setItem('pwa-banner-dismissed', String(Date.now()));
   };
 
-  if (!showBanner || isInstalled || !canInstall) return null;
+  if (!showBanner || isInstalled || !canInstall || isSharePage) return null;
 
   return (
     <div className="fixed bottom-20 md:bottom-4 left-4 right-4 md:left-auto md:right-4 md:max-w-sm z-50 animate-slide-up">
