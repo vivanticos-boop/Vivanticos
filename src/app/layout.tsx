@@ -73,6 +73,14 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `
+              // ===== Prevent Chrome's default "Install App" mini-infobar =====
+              // We always preventDefault so Chrome never shows its automatic prompt.
+              // On /share (public catalog) this means NO install prompt at all.
+              // On app pages, the usePwaInstall hook captures the event for our custom banner.
+              window.addEventListener('beforeinstallprompt', function(e) {
+                e.preventDefault();
+              });
+
               if ('serviceWorker' in navigator) {
                 window.addEventListener('load', function() {
                   // Register SW with updateViaCache: 'none' to always check network for SW updates
